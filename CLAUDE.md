@@ -36,6 +36,7 @@ TVA ayuda a apps a escalar de cero a millones de MRR. Tres pilares: Creator Netw
 | `/campaign-creation` | Crear campaña nueva, job listing, brief para creadores, calcular compensación |
 | `/creator-db` | Gestionar la base de 187 creadores: filtrar, buscar, añadir, actualizar, shortlist |
 | `/creator-outreach` | Redactar textos de contacto: email, DM, WhatsApp, iMessage, SideShift |
+| `/outreach-blast` | Blast masivo de invites: iMessage (osascript) + Gmail draft a toda la Creator DB filtrada |
 
 ### B. Creator DB CLI — 16 Comandos (`python3 tools/creators.py <cmd>`)
 
@@ -128,6 +129,7 @@ Si menciona nombre/email de creador:
 | "creadoras que ya están en SideShift" | `list --sideshift` |
 | "creadoras de beauty/skincare" | `list --niche skincare` (o `search skincare`) |
 | "dame una lista de contactos" | `shortlist --gender f --country US --output creators/exports/[nombre].md` |
+| "manda el mensaje", "envía el blast", "contacta a todas", "manda iMessage a las creadoras" | Invocar `/outreach-blast` — shortlist → invite link → iMessage + Gmail |
 | "filtra por [criterio]" | Mapear criterio a flag del CLI y ejecutar |
 
 ---
