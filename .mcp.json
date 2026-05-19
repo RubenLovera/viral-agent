@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "sideshift": {
+      "command": "node",
+      "args": [
+        "/Users/rubenlovera/VIRAL/tools/sideshift-mcp/index.js"
+      ],
+      "env": {
+        "SIDESHIFT_API_KEY": "${SIDESHIFT_API_KEY}"
+      }
+    },
+    "notion-tva": {
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp"
+    }
+  }
+}

@@ -123,6 +123,16 @@ Free: solo quiz + ver Skin DNA. Todo lo demás requiere suscripción.
 | Rutina | Básico o ninguno | Conflict detection, gap analysis, better-match y better-value |
 | Social | Ninguno | Share sheet nativa iOS/Android dentro de TikTok/Instagram |
 
+**Benchmark competitivo completo (UGC profundo):**  
+Ver `~/VIRAL/research/competitor-benchmark-skinqueen.md` (ES) y `competitor-benchmark-skinqueen-EN.md` (EN).  
+Incluye: análisis de producto, social stats, hooks observados, formatos UGC por app, user persona del creator UGC por competidor, gaps y oportunidades para SkinQueen, y recomendaciones para briefs.
+
+**Highlights del benchmark (2026-05-12):**
+- **OnSkin** — el más peligroso en TikTok: 11.3K followers / 944.2K likes (ratio 83:1). Free. 8M+ usuarios. Hook dominante: safety reveal en tiempo real + "qué hay realmente en tu producto".
+- **Lóvi** — más sofisticado a nivel producto: face scanner + AI cosmetologist + product scanner. 43.5K en Instagram. Subscription. Hook dominante: face scan reveal + "no es magia, es ciencia".
+- **SkinSort** — web-first, SEO-driven, millones de usuarios orgánicos con 479 seguidores en TikTok. Free. Hook dominante: dupe finder + "guardá el nombre de esta app — thank me later" (658K likes en un solo video orgánico).
+- **Moat de SkinQueen:** TikTok video scan es absolutamente único — ningún competidor lo tiene. No está siendo suficientemente explotado en UGC.
+
 ---
 
 ## 6. Estadísticas y Mensajes Clave

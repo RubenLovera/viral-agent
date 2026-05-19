@@ -1,233 +1,352 @@
 # VIRAL — Proyecto The Viral App
-
-Este es el workspace de Rubén como **UGC Manager en The Viral App (TVA)**.
+> Workspace de Rubén Lovera como UGC Manager en The Viral App (TVA).
 
 ---
 
 ## Contexto del Rol
 
-**Empresa:** The Viral App (TVA) — Growth agency de UGC e influencer marketing para apps móviles. Sede en Mendoza, Argentina. 18 meses de operación.  
-**Rol:** UGC Manager  
-**Ingreso:** 2026-05-06  
-**Reporte a:** Head of UGC Operations  
+**Empresa:** The Viral App (TVA) — Growth agency de UGC e influencer marketing para apps móviles.  
+**Rol:** UGC Manager | **Ingreso:** 2026-05-06 | **Reporte a:** Head of UGC Operations
 
-TVA ayuda a apps a escalar de cero a millones de MRR a través de contenido creado por creadores. Tres pilares: Creator Networks, Performance Systems, Repeatable Playbooks.
+TVA ayuda a apps a escalar de cero a millones de MRR. Tres pilares: Creator Networks, Performance Systems, Repeatable Playbooks.
 
 ---
 
-## Responsabilidades Core
+## Cliente Activo
 
-| Área | Descripción |
+**SkinQueens** — App de skincare IA (iOS + Android)
+- **Tagline:** "Stop guessing. Start matching."
+- **Core:** Usuario comparte TikTok → app analiza productos → cruza con Skin DNA → dice si hace match
+- **Pricing:** $59.99/año (7 días gratis) | $9.99/mes
+- **Contrato:** 20 creadores UGC + 3-4 AI accounts, ~750-800 piezas/mes
+- **Contacto:** Joe Fleming (CEO)
+- **Personas:** SkinTok Scroller (18-29, primario), Routine Builder, Cautious Buyer
+- **SideShift Program ID:** `TB3foYXKIztJmVZmPkyJ` ← usar SIEMPRE este ID
+- **Ver más:** `clients/skinqueen/CLAUDE.md`
+
+---
+
+## Arsenal Completo — 35 Capacidades
+
+### A. Skills Claude (SKILL.md — invocar con Skill tool)
+
+| Skill | Cuándo usarlo |
+|-------|---------------|
+| `/sideshift` | Cualquier consulta de datos de SideShift: analytics, posts, pagos, invites, reclutamiento |
+| `/campaign-creation` | Crear campaña nueva, job listing, brief para creadores, calcular compensación |
+| `/creator-db` | Gestionar la base de 187 creadores: filtrar, buscar, añadir, actualizar, shortlist |
+| `/creator-outreach` | Redactar textos de contacto: email, DM, WhatsApp, iMessage, SideShift |
+
+### B. Creator DB CLI — 16 Comandos (`python3 tools/creators.py <cmd>`)
+
+| Categoría | Comando | Cuándo usar |
+|-----------|---------|-------------|
+| Consulta | `list [filtros]` | Listar creadores con filtros (tier, género, país, sideshift, niche, tag) |
+| Consulta | `search <texto>` | Buscar por nombre, email, ciudad, niche, highlights |
+| Consulta | `show <nombre>` | Ver perfil completo de un creador específico |
+| Consulta | `stats` | Estadísticas generales de la base de datos |
+| CRUD | `add` | Añadir creador manualmente |
+| CRUD | `update <nombre>` | Actualizar campos de un creador (tier, niche, handles, etc.) |
+| CRUD | `archive <nombre>` | Archivar (soft-delete) un creador |
+| CRUD | `restore <nombre>` | Restaurar creador archivado |
+| CRUD | `blacklist <nombre>` | Marcar como Do Not Contact con razón |
+| Organización | `tag <nombre> <tags>` | Añadir/remover etiquetas libres |
+| Organización | `note <nombre> <texto>` | Añadir nota con timestamp automático |
+| Organización | `enrich [--field]` | Ver qué campos faltan (tier, niche, handles, género) |
+| Organización | `dedup` | Detectar emails o nombres duplicados |
+| Campañas | `shortlist [filtros]` | Generar shortlist filtrada para una campaña |
+| Campañas | `export [filtros]` | Exportar a CSV |
+| Campañas | `outreach` | Registrar contacto en historial del creador |
+| Sync | `sync` | Sincronizar desde Done With You (preserva datos locales) |
+
+### C. SideShift MCP Tools (`mcp__sideshift__*`)
+
+| Tool | Cuándo usar |
 |------|-------------|
-| Creator Recruitment | Encontrar, vettear y onboardear nuevos creadores |
-| Brief Development | Escribir creative briefs claros (nunca scripts) |
-| Draft Review | Ver cada draft y dar feedback accionable con timestamps |
-| Quality Control | Asegurar que cada video cumple estándares TVA |
-| Creator Relationships | Comunicación, motivación y retención vía WhatsApp |
-| Performance Tracking | Monitorear métricas y optimizar por creador |
-| Format Research | Mantenerse actualizado en tendencias, testear formatos |
+| `list_programs` | Ver todas las campañas activas |
+| `list_posts` | Ver posts con métricas — filtrar por programa, creador, fecha |
+| `get_post` | Detalle completo de un post específico |
+| `get_post_metrics_history` | Historial diario de métricas de un post |
+| `get_kpis` | KPIs generales de la cuenta |
+| `get_analytics_overview` | Overview de analytics del programa |
+| `get_analytics_videos` | Analytics por video — ranking de performance |
+| `get_analytics_accounts` | Analytics por cuenta de creador |
+| `get_analytics_recruitment` | Invites enviados, responses, response rate |
+| `list_payouts` | Pagos procesados |
+| `list_pending_payouts` | Pagos pendientes de procesar |
+| `list_creators` | Creadores registrados en SideShift |
+| `list_contracts` | Contratos activos/pendientes con status |
+| `list_invoices` | Facturas generadas |
+| `create_program_invite` | Generar invite link para una campaña |
 
 ---
 
-## KPIs de Performance
+## Routing Autónomo — Lógica de Decisión
+
+**REGLA FUNDAMENTAL:** Claude debe identificar el contexto e invocar las herramientas correctas **sin esperar que Rubén las pida explícitamente**. Leer el intent, no las palabras exactas.
+
+---
+
+### 1. Cuando Rubén pregunta sobre performance / métricas / campaña
+
+**Acción automática:** Llamar SideShift MCP sin que te lo pidan.
+
+| Intent detectado | Herramientas a usar (en orden) |
+|-----------------|-------------------------------|
+| "cómo va la campaña" / "cómo estamos" / "qué tal SkinQueens" | `get_analytics_overview` → `get_analytics_videos` → invocar `/sideshift` |
+| "top videos" / "mejores posts" / "qué está funcionando" | `get_analytics_videos` → `list_posts` |
+| "cuántas views" / "cuántos likes" / "métricas" | `get_kpis` → `get_analytics_overview` |
+| "pagos" / "cuánto se ha pagado" / "pendientes de pago" | `list_pending_payouts` → `list_payouts` |
+| "cuántos creadores activos" / "contratos" | `list_contracts` → `list_creators` |
+| "cómo va el reclutamiento" / "cuántas invites" | `get_analytics_recruitment` |
+| "invite link" / "invitar a [creador]" a SideShift | `create_program_invite` con ID `TB3foYXKIztJmVZmPkyJ` |
+
+---
+
+### 2. Cuando Rubén menciona un creador por nombre
+
+**Acción automática:** Buscar en la DB local PRIMERO, luego en SideShift si aplica.
+
+```
+Si menciona nombre/email de creador:
+  1. python3 tools/creators.py show "<nombre>"
+  2. Si está en SideShift: mcp__sideshift__list_posts --creator [id]
+  3. Presentar: perfil local + performance en SideShift si existe
+```
+
+---
+
+### 3. Cuando Rubén quiere encontrar / seleccionar / invitar creadoras
+
+**Acción automática:** Consultar DB local + generar shortlist lista para usar.
+
+| Intent | Flujo automático |
+|--------|-----------------|
+| "busca creadoras para SkinQueens" | `list --gender f --country US` → shortlist → preguntar si verificar perfiles en TikTok |
+| "quiero invitar más creadoras" | `list --gender f --sideshift` → `shortlist` → `create_program_invite` |
+| "creadoras de tier S/A" | `list --tier S A` directo |
+| "creadoras que ya están en SideShift" | `list --sideshift` |
+| "creadoras de beauty/skincare" | `list --niche skincare` (o `search skincare`) |
+| "dame una lista de contactos" | `shortlist --gender f --country US --output creators/exports/[nombre].md` |
+| "filtra por [criterio]" | Mapear criterio a flag del CLI y ejecutar |
+
+---
+
+### 4. Cuando Rubén quiere escribirle a un creador
+
+**Acción automática:** Buscar perfil + invocar `/creator-outreach` con contexto precargado.
+
+```
+Si intent = contactar/escribir/DM/email a creador:
+  1. python3 tools/creators.py show "<nombre>"  ← precarga contexto
+  2. Invocar /creator-outreach con: nombre, email, canal, cliente (SkinQueens), escenario
+  3. Registrar outreach automáticamente después: creators.py outreach ...
+```
+
+---
+
+### 5. Cuando Rubén quiere crear una nueva campaña
+
+**Acción automática:** Cargar contexto del cliente + invocar `/campaign-creation`.
+
+```
+Si intent = nueva campaña / brief / job listing:
+  1. Leer clients/skinqueen/CLAUDE.md (o cliente mencionado)
+  2. Consultar vault: git submodule update --remote vault
+  3. Invocar /campaign-creation con contexto del cliente
+```
+
+---
+
+### 6. Cuando Rubén actualiza info de un creador
+
+**Acción automática:** Update en la DB + registrar en historial.
+
+| Intent | Comando automático |
+|--------|--------------------|
+| "el tier de [nombre] es A" | `update "<nombre>" --tier A` |
+| "su niche es skincare" | `update "<nombre>" --niche skincare,beauty` |
+| "su TikTok es @handle" | `update "<nombre>" --tiktok handle` |
+| "ya entró a SideShift" | `update "<nombre>" --sideshift true` |
+| "no quiero trabajar más con [nombre]" | `blacklist "<nombre>" --reason "..."` |
+| "le mandé invite" / "la contacté" | `outreach "<nombre>" --channel [canal] --result "Invite enviado"` |
+
+---
+
+### 7. Cuando Rubén pide research / scouting de nuevos creadores
+
+**Acción automática:** Usar `/browse` para ir a TikTok/IG + comparar con DB existente.
+
+```
+Si intent = scouting / buscar nuevas creadoras / investigar perfil:
+  1. Invocar /browse → navegar perfil de TikTok/IG
+  2. Evaluar contra criterios de SkinQueens (skinTok, beauty, autenticidad)
+  3. Si aplica: creators.py add --name ... --niche skincare --tag skinqueens-prospect
+  4. Si no aplica: explicar por qué no cumple los criterios
+```
+
+---
+
+### 8. Cuando Rubén pide estadísticas o resumen de la DB
+
+**Acción automática:** `stats` + formato limpio sin preguntas.
+
+```
+Si intent = stats / cuántos / distribución / resumen de creadores:
+  → python3 tools/creators.py stats
+  → Presentar resultado formateado
+```
+
+---
+
+## Flujos Automáticos Compuestos
+
+Estos flujos se ejecutan completos sin esperar confirmación paso a paso:
+
+### Flujo: Health Check de Campaña
+*Trigger: "cómo estamos", "dame un resumen", "health check de SkinQueens"*
+1. `get_analytics_overview` (program: `TB3foYXKIztJmVZmPkyJ`)
+2. `get_analytics_videos` — top 5 posts
+3. `list_pending_payouts` — pagos pendientes
+4. `list_contracts` — contratos activos vs pendientes
+5. Presentar resumen ejecutivo en una respuesta
+
+### Flujo: Shortlist para Nueva Batch
+*Trigger: "quiero invitar más creadoras", "necesito creadoras para SkinQueens"*
+1. `list_contracts` → identificar cuántas hay activas
+2. `creators.py list --gender f --country US` → pool disponible
+3. `creators.py shortlist --gender f --country US --not-in-campaign "TikTok UGC Creators for AI Skincare App — SkinQueens"` → candidatas nuevas
+4. Presentar tabla con nombre, email, tier, SideShift status
+5. Preguntar: ¿verifico perfiles en TikTok?
+
+### Flujo: Onboarding de Creador Nuevo
+*Trigger: "vamos a onboardear a [nombre]", "nueva creadora aceptó"*
+1. `creators.py show "<nombre>"` — ver si ya está en la DB
+2. Si no está: `creators.py add` con datos disponibles
+3. `creators.py tag "<nombre>" "onboarding"` — marcar estado
+4. Invocar `/creator-outreach` — mensaje de bienvenida
+5. Recordar: contrato antes de producir contenido
+
+### Flujo: Enriquecimiento de Perfil
+*Trigger: "vamos a enriquecer perfiles", "necesito saber el niche de las creadoras"*
+1. `creators.py enrich --field niche` → lista de pendientes
+2. Para cada una: `/browse` → ir a TikTok → evaluar niche
+3. `creators.py update "<nombre>" --niche "..."` → guardar
+4. `creators.py tag "<nombre>" "verificada"` → marcar como verificada
+
+---
+
+## Comportamiento Proactivo — Reglas Siempre Activas
+
+Estas reglas aplican en TODO momento, sin que Rubén las pida:
+
+1. **Si Rubén menciona una creadora por nombre** → ejecutar `creators.py show` antes de responder cualquier cosa sobre ella.
+
+2. **Si la pregunta involucra datos de SideShift** → usar MCP tools para traer datos reales, nunca inventar métricas.
+
+3. **Si Rubén toma una decisión sobre un creador** → actualizar la DB automáticamente al final de la respuesta (`update`, `note`, `tag`, `outreach` según corresponda).
+
+4. **Si hay un outreach** → después de generar el texto, preguntar si quiere registrarlo: `creators.py outreach`.
+
+5. **Si el program ID de SkinQueens es necesario** → siempre usar `TB3foYXKIztJmVZmPkyJ`, nunca el ID viejo.
+
+6. **Si Rubén pregunta algo que requiere datos de la DB** → ejecutar el CLI primero, responder basado en datos reales.
+
+7. **Antes de cualquier tarea de campaña** → consultar `clients/skinqueen/CLAUDE.md` y vault si es necesario.
+
+8. **Si Rubén menciona un niche, tag o criterio nuevo** → sugerir añadirlo a la DB con `creators.py tag` o `update --niche`.
+
+---
+
+## Estructura del Proyecto
+
+```
+VIRAL/
+├── vault/                    # Second brain TVA (git submodule — read only)
+├── clients/skinqueen/        # Contexto completo de SkinQueens
+├── creators/
+│   ├── creators.json         # SOURCE OF TRUTH — 187 creadores
+│   ├── creator-directory.md  # Vista markdown (auto-generada)
+│   └── exports/              # Shortlists y CSVs exportados
+├── briefs/                   # Briefs por campaña
+├── campaigns/                # Estado de campañas activas
+├── research/                 # Scouting y format research
+└── tools/
+    ├── creators.py           # CLI de la creator DB (16 comandos)
+    ├── sync-creators.py      # Sync legacy
+    └── sideshift-mcp/        # Servidor MCP de SideShift
+```
+
+---
+
+## SideShift MCP — Configuración
+
+**Program ID SkinQueens:** `TB3foYXKIztJmVZmPkyJ` ← SIEMPRE este ID  
+**API key:** `$SIDESHIFT_API_KEY` en `~/.zshrc`  
+**Server:** `~/VIRAL/tools/sideshift-mcp/index.js`  
+**Config:** `.mcp.json` en la raíz del proyecto  
+**Si no carga:** reiniciar Claude Code  
+**NUNCA** hacer llamadas manuales a la API — siempre usar los MCP tools
+
+---
+
+## Creator DB — Configuración
+
+**Source of truth:** `creators/creators.json` — 187 creadores  
+**CLI:** `python3 tools/creators.py <comando>`  
+**Sync desde Done With You:**
+```bash
+python3 tools/creators.py sync
+# o manualmente:
+curl -u "admin:TVA@dmin2026!" https://done-with-you-production.up.railway.app/api/creators
+```
+**SKILL:** `.claude/skills/creator-db/SKILL.md`
+
+---
+
+## Knowledge Base / Vault
+
+```bash
+git submodule update --remote vault   # actualizar antes de tareas de campaña
+```
+Consultar vault para: playbooks, SOPs, templates, historial de campañas, info de clientes.
+
+---
+
+## KPIs y Estándares de Calidad
 
 | KPI | Excelente | Bueno | Mínimo |
 |-----|-----------|-------|--------|
 | Videos on time | 90%+ | 80-89% | 70-79% |
 | Draft approval rate | 70%+ | 55-69% | 40-54% |
 | Creator retention | 80%+ | 65-79% | 50-64% |
-| Content quality score | 4.0+ (sobre 5) | 3.5-3.9 | 3.0-3.4 |
-| Response time | <2 horas | 2-4 horas | 4-8 horas |
+| Content quality score | 4.0+ / 5 | 3.5-3.9 | 3.0-3.4 |
+| Response time | <2h | 2-4h | 4-8h |
 
-**Regla de oro:** Response time a creadores máximo 4 horas durante horas de trabajo.
-
----
-
-## Stack de Herramientas
-
-| Herramienta | Uso |
-|-------------|-----|
-| **SideShift** | Plataforma principal — campañas, creators, pagos, analytics |
-| **Slack** | Interno: #ugc-team, #creator-drafts, #creator-issues, #campaign-updates |
-| **Notion** | SOPs, Creator Database, Campaign Tracker, Meeting Notes |
-| **WhatsApp** | Comunicación directa con creadores |
-| **Google Drive** | Briefs, contratos, Content Library, research |
-| **TikTok / Instagram** | Scouting de creadores, seguimiento de competidores |
+**Métricas SideShift:**
+| Métrica | Cómo calcular | Target |
+|---------|--------------|--------|
+| CPM | Gasto / (Views / 1,000) | <$5 (<$2 excelente) |
+| Hook Rate | Views 3s / Views totales | 40%+ TikTok |
+| Engagement Rate | (Likes + Comments) / Views × 100 | 3%+ TikTok |
 
 ---
 
-## Rutina Diaria
-
-### Bloque Mañana (9:00–10:00 AM)
-1. Ver todos los nuevos drafts de creadores (revisar tracking + WhatsApp grupos)
-2. Comentar posts publicados en últimas 24h (TikTok + IG)
-3. Responder comentarios en videos publicados, flaggear negativos
-4. Check-in a creadores con deadline hoy/mañana
-5. Dar feedback detallado a drafts con timestamps específicos
-
-### Bloque Mediodía (10:00 AM–2:00 PM)
-- Follow up a creadores con atraso (48h+ sin respuesta → escalar al team lead)
-- Scouting de nuevos creadores (meta: 5-10 prospectos/día en fases activas)
-- Campaign work: enviar briefs, setup WhatsApp groups, ciclos de revisión
-
-### Bloque Final de Día (4:00–5:00 PM)
-- Actualizar tracking sheet
-- Flaggear issues en #creator-issues
-- Planear top 3 prioridades para mañana
-
----
-
-## Proceso de Onboarding de Creador
-
-1. **Initial Call (20-30 min)** — intro, explicar TVA, campaña, expectativas, next steps
-2. **Brief (dentro de 24h)** — overview, formato, referencias, specs técnicas, deadline
-3. **Contrato** — firma ANTES de producir contenido (derechos, pago, confidencialidad)
-4. **WhatsApp Group** — nombre: "TVA x [Creador] - [App]"
-5. **Primera semana** — check-ins frecuentes, feedback rápido y específico
-
----
-
-## Cómo Aprobar / Rechazar un Draft
-
-### Aprobar si:
-- Hook fuerte en primeros 1-2 segundos
-- App mostrada naturalmente, nombre visible en pantalla
-- Video bajo 30s (TikTok) o 60s (Reels)
-- Audio limpio, fondo sin distracciones
-- CTA presente, sin productos de competidores
-
-### Pedir revisión si:
-- Nombre del app no visible / no mencionado
-- Hook débil (empieza con "Hey guys")
-- Integración forzada/scriptada
-- Audio pobre o fondo desordenado
-- Faltan elementos del brief (logo, CTA, hashtags)
-
-### Rechazar si:
-- Completamente off-brief
-- Muestra productos de la competencia
-- Calidad inmirada
-- Creador claramente no usó el producto
-
-**Cómo dar feedback:** Específico con timestamps. Referenciar ejemplos. Tono positivo. Nunca reescribir el script — dar dirección, no dictado.
-
----
-
-## Regla de oro TVA en Briefs
+## Reglas de Brief (nunca violar)
 
 > **"Deciles qué LOGRAR, no qué DECIR."**
 
-Contenido scriptado performa 60-80% peor que contenido auténtico. Dar contexto, ejemplos y dirección. Dejar que el creador encuentre su voz.
+- Contenido scriptado performa 60-80% peor que auténtico
+- Aprobar: hook fuerte en 1-2s, app visible, video <30s TikTok / <60s Reels, audio limpio, CTA presente
+- Rechazar: off-brief, competencia visible, calidad pésima, creador no usó el producto
+- Feedback: específico con timestamps, tono positivo, nunca reescribir el script
 
 ---
 
-## Estructura de un Brief Efectivo
-
-```
-CAMPAIGN: [App] UGC Campaign
-PLATFORM: TikTok / Instagram Reels
-VIDEO LENGTH: 15-30s
-OBJECTIVE: [1-2 oraciones]
-
-PRODUCT INFO:
-What it is: [1 oración]
-Key feature to show: [UN feature para este batch]
-Website / Download link: [URL]
-
-KEY MESSAGES (elegir 1-2 por video):
-1. [Mensaje 1]
-2. [Mensaje 2]
-
-TARGET AUDIENCE: [Edad, dolor, etapa de vida]
-
-CONTENT STYLE:
-[Selfie/screen recording/skit/etc.]
-Hook en primeros 1-2 segundos
-Mostrar app al menos 5 segundos
-Terminar con CTA
-
-MUST INCLUDE:
-Nombre del app visible en pantalla
-[Feature/pantalla específica]
-
-DO NOT INCLUDE:
-Sensación scriptada/ensayada
-Productos de la competencia
-
-EXAMPLES:
-1. [Link] — me gusta el hook
-2. [Link] — cómo muestran el feature
-```
-
----
-
-## Métricas de SideShift Analytics
-
-| Métrica | Cómo calcular | Target |
-|---------|--------------|--------|
-| CPM | Gasto / (Views / 1,000) | <$5 (< $2 excelente) |
-| Hook Rate | Views a 3s / Views totales | 40%+ TikTok |
-| Engagement Rate | (Likes + Comments) / Views × 100 | 3%+ TikTok |
-| Content Grade | Escala 1-10 por comentarios ("What app is this?" = Grade 8+) | 6+ promedio |
-
----
-
-## Cliente Activo: SkinQueen
-
-App móvil de skincare personalizado (iOS + Android).  
-**Tagline:** "Stop guessing. Start matching."  
-**Core:** Usuario comparte video de TikTok → app extrae productos → cruza contra Skin DNA de 22 preguntas → dice si hacen match.  
-**9 Skin Archetypes:** Glow Seeker, Barrier Builder, Acne Fighter, Age Defier, Texture Refiner, Dark Spot Warrior, Moisture Maven, Skin Minimalist, Skin Explorer.  
-**Pricing:** $59.99/año (7 días gratis) o $9.99/mes.  
-**Personas:** SkinTok Scroller (18-29, primario), Routine Builder, Cautious Buyer, Budget-Conscious Queen.
-
----
-
-## Knowledge Base
-
-Todo el conocimiento profundo de TVA vive en AgentVault:
-- `~/AgentVault/wiki/the-viral-app/` — wiki completo (overview, onboarding, SideShift)
-- `~/AgentVault/wiki/the-viral-app/sideshift/` — analytics, briefs, creator management, payments
-- `~/AgentVault/wiki/the-viral-app/onboarding/` — daily routine, KPIs, draft review, creator onboarding
-- `~/Documents/Obsidian Vault/🎬 The Viral App/HOME.md` — hub personal en Obsidian
-
-## Estructura de este proyecto
-
-```
-VIRAL/
-├── clients/          # Un directorio por cliente activo
-│   └── skinqueen/    # CLAUDE.md con contexto completo del cliente
-├── briefs/           # Creative briefs por campaña/cliente
-├── creators/         # Notas, perfiles y tracking de creadores
-├── campaigns/        # Estado y notas por campaña activa
-├── research/         # Scouting, formato research, competidores
-└── tools/            # Scripts, automatizaciones, herramientas propias
-```
-
-## Clientes activos
-
-- **SkinQueens** — App de skincare IA. Pilot month 1 mes. 10 creadores UGC + 3-4 AI accounts. ~750-800 piezas/mes. Contacto: Joe Fleming (CEO). Ver `clients/skinqueen/CLAUDE.md`.
-
-## gstack (REQUIRED — global install)
-
-**Before doing ANY work, verify gstack is installed:**
+## gstack (REQUIRED)
 
 ```bash
 test -d ~/.claude/skills/gstack/bin && echo "GSTACK_OK" || echo "GSTACK_MISSING"
 ```
-
-If GSTACK_MISSING: STOP. Do not proceed. Tell the user:
-
-> gstack is required for all AI-assisted work in this repo.
-> Install it:
-> ```bash
-> git clone --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack
-> cd ~/.claude/skills/gstack && ./setup --team
-> ```
-> Then restart your AI coding tool.
-
-Do not skip skills, ignore gstack errors, or work around missing gstack.
-
-Using gstack skills: After install, skills like /qa, /ship, /review, /investigate,
-and /browse are available. Use /browse for all web browsing.
-Use ~/.claude/skills/gstack/... for gstack file paths (the global path).
+Si GSTACK_MISSING: STOP. Instalar antes de continuar.
+Usar `/browse` para TODA navegación web. Nunca `mcp__claude-in-chrome__*`.
