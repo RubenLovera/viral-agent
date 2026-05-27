@@ -324,31 +324,15 @@ async def morning_report(bot: Bot):
     except Exception as e:
         logger.warning('Error fetching payouts: %s', e)
 
-    # ── Local creators check ──
-    creators     = load_creators()
-    sq_creators  = skinqueens_creators(creators)
-    if sq_creators:
-        lines.append(f'👥 <b>Creadores SkinQueens (local DB):</b> {len(sq_creators)}')
-
-    # ── New creator detection ──
-    state = load_state()
-    known_emails = set(state.get('known_creator_emails', []))
-    current_emails = {c['email'] for c in creators if c.get('email')}
-
-    if known_emails:
-        new_emails = current_emails - known_emails
-        if new_emails:
-            new_creators = [c for c in creators if c.get('email') in new_emails]
-            lines.append(f'\n🆕 <b>Nuevos creadores detectados:</b> {len(new_creators)}')
-            for nc in new_creators:
-                lines.append(f'  • {nc["name"]} ({nc.get("email", "")})')
-            lines.append('  → Revisar onboarding pack')
+    # ── Creators summary from creators_map ──
+    creators_map = load_creators_map()
+    if creators_map:
+        active_n  = len([c for c in creators_map if c.get('contract_status') == 'active'])
+        pending_n = len([c for c in creators_map if c.get('contract_status') == 'pending'])
+        lines.append(f'👥 <b>Creadoras {CLIENT_NAME}:</b> {len(creators_map)} total — {active_n} activas, {pending_n} pendientes')
 
     # Save state
-    new_state = {
-        'last_run': datetime.now(LA_TZ).isoformat(),
-        'known_creator_emails': list(current_emails),
-    }
+    new_state = {'last_run': datetime.now(LA_TZ).isoformat()}
     save_state(new_state)
 
     await send(bot, '\n'.join(lines))
@@ -357,126 +341,66 @@ async def morning_report(bot: Bot):
 # ── Buenos Días Check (11am cron) ─────────────────────────────────────────────
 
 async def buenos_dias_check(bot: Bot):
-    """Alert Rubén about creators who haven't posted in 24h."""
+    """11 AM — Alert about active creators who haven't posted today."""
     logger.info('Running buenos días check')
-    creators = load_creators()
-    sq_creators = skinqueens_creators(creators)
+    creators_map = load_creators_map()
+    cs_all       = load_channel_state()
 
-    if not sq_creators:
+    active = [c for c in creators_map if c.get('contract_status') == 'active']
+    if not active:
         return
 
-    try:
-        # Get posts from last 24h
-        posts_data = await _ss('/posts', {
-            'program': SS_PROGRAM,
-            'fromDate': _yesterday_str(),
-            'toDate': _today_str(),
-            'limit': 100,
-        })
-        posts = posts_data.get('items', posts_data.get('data', []))
-        posted_emails = {
-            (p.get('creator', {}) or {}).get('email', '').lower()
-            for p in posts
-        }
+    silent = []
+    for c in active:
+        ss_id = c.get('sideshift_id', '')
+        cs    = cs_all.get(ss_id, {})
+        days  = cs.get('days_since_last')
+        if days is None or days >= 1:
+            silent.append(c)
 
-        # Check SideShift creators too
-        ss_creators_data = await _ss('/creators', {'limit': 100})
-        ss_creators = ss_creators_data.get('items', ss_creators_data.get('data', []))
+    if not silent:
+        logger.info('Buenos días check: all creators posted')
+        return
 
-        # Find who hasn't posted
-        silent = []
-        for creator in sq_creators:
-            email = (creator.get('email') or '').lower()
-            if email and email not in posted_emails:
-                ss_match = next(
-                    (c for c in ss_creators if (c.get('email') or '').lower() == email),
-                    None,
-                )
-                if ss_match:  # Only flag creators who are on SideShift
-                    silent.append(creator)
+    lines = [f'⏰ <b>Sin postear hoy:</b> {len(silent)} creadoras\n']
+    for c in silent[:10]:
+        name  = c.get('creator_name', 'Creator')
+        ss_id = c.get('sideshift_id', '')
+        cs    = cs_all.get(ss_id, {})
+        days  = cs.get('days_since_last', '?')
+        lines.append(f'  • {name} — {days}d sin postear')
 
-        if silent:
-            lines = [f'⏰ <b>Sin postear en 24h:</b> {len(silent)} creadores\n']
-            for c in silent[:10]:
-                phone = c.get('phone', '')
-                name  = c['name']
-                lines.append(f'  • {name}' + (f' — {phone}' if phone else ''))
-
-            if MAC_RELAY_URL:
-                lines.append('\n→ Enviando buenos días por iMessage...')
-                sent, failed = 0, 0
-                template = _load_template('buenos-dias.txt',
-                                          'Hey [name]! Just checking in — how\'s the video coming? 🎬')
-                for c in silent:
-                    phone = c.get('phone', '')
-                    if phone:
-                        msg = template.replace('[name]', c['name'].split()[0])
-                        ok  = await send_imessage(phone, msg)
-                        if ok:
-                            sent += 1
-                        else:
-                            failed += 1
-                lines.append(f'✅ Enviados: {sent} | ❌ Fallidos: {failed}')
-            else:
-                lines.append('\n→ <i>mac-relay no configurado — enviar manualmente</i>')
-
-            await send(bot, '\n'.join(lines))
-        else:
-            logger.info('Buenos días check: all creators posted')
-
-    except Exception as e:
-        logger.error('Buenos días check error: %s', e)
-        await send(bot, f'⚠️ Error en buenos días check: {e}')
+    await send(bot, '\n'.join(lines))
 
 # ── Overdue Check (5pm cron) ──────────────────────────────────────────────────
 
 async def overdue_check(bot: Bot):
-    """Alert Rubén about creators who haven't posted in 24h."""
+    """5 PM — Alert about active creators silent for 24h+ based on channel state."""
     logger.info('Running overdue check')
-    two_days_ago = (date.today() - timedelta(days=1)).isoformat()
+    creators_map = load_creators_map()
+    cs_all       = load_channel_state()
 
-    try:
-        posts_data = await _ss('/posts', {
-            'program': SS_PROGRAM,
-            'fromDate': two_days_ago,
-            'toDate': _today_str(),
-            'limit': 100,
-        })
-        posts = posts_data.get('items', posts_data.get('data', []))
-        posted_emails = {
-            (p.get('creator', {}) or {}).get('email', '').lower()
-            for p in posts
-        }
+    active = [c for c in creators_map if c.get('contract_status') == 'active']
+    if not active:
+        return
 
-        ss_creators_data = await _ss('/creators', {'limit': 100})
-        ss_creators = ss_creators_data.get('items', ss_creators_data.get('data', []))
+    overdue = []
+    for c in active:
+        ss_id = c.get('sideshift_id', '')
+        cs    = cs_all.get(ss_id, {})
+        days  = cs.get('days_since_last')
+        if days is not None and days >= 1:
+            overdue.append((c.get('creator_name', 'Creator'), days))
 
-        creators    = load_creators()
-        sq_creators = skinqueens_creators(creators)
+    if not overdue:
+        logger.info('Overdue check: no overdue creators')
+        return
 
-        overdue = []
-        for creator in sq_creators:
-            email = (creator.get('email') or '').lower()
-            if email and email not in posted_emails:
-                ss_match = next(
-                    (c for c in ss_creators if (c.get('email') or '').lower() == email),
-                    None,
-                )
-                if ss_match:
-                    overdue.append(creator)
-
-        if overdue:
-            lines = [f'🚨 <b>OVERDUE — 24h sin postear:</b> {len(overdue)} creadores\n']
-            for c in overdue[:10]:
-                lines.append(f'  • {c["name"]}')
-            lines.append('\n→ Considera escalar al team lead.')
-            await send(bot, '\n'.join(lines))
-        else:
-            logger.info('Overdue check: no overdue creators')
-
-    except Exception as e:
-        logger.error('Overdue check error: %s', e)
-        await send(bot, f'⚠️ Error en overdue check: {e}')
+    lines = [f'🚨 <b>OVERDUE — sin postear hoy:</b> {len(overdue)} creadoras\n']
+    for name, days in sorted(overdue, key=lambda x: x[1], reverse=True)[:10]:
+        lines.append(f'  • {name} — {days}d sin postear')
+    lines.append('\n→ Considera escalar al team lead.')
+    await send(bot, '\n'.join(lines))
 
 # ── Nightly Digest (9pm cron) ─────────────────────────────────────────────────
 
@@ -2091,16 +2015,8 @@ async def slack_daily_brief(bot: Bot):
     user_client = AsyncWebClient(token=SLACK_USER_TOKEN) if SLACK_USER_TOKEN else None
     oldest = str((datetime.now(LA_TZ) - timedelta(hours=24)).timestamp())
 
-    # Channel labels for report
-    channel_labels: dict[str, str] = {
-        'C0B254Z28T1': 'briefs',
-        'C0B2EES14RG': 'cliente',
-        'C0B2J1W4UUV': 'líderes',
-        'D0B3P26CUM7': 'Joe Flemming',
-        'D0B12MQ33JB': 'Lucas Patiri',
-        'D0B1G43BCR4': 'Tomas Boismene',
-        'D0B12MQMGKZ': 'Martina Alvarez',
-    }
+    # Channel labels — use Slack API name for channels, ID for DMs
+    channel_labels: dict[str, str] = {}
 
     all_parts: list[str]         = []
     channel_summaries: list[str] = []

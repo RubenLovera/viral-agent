@@ -181,6 +181,11 @@ cd ~/VIRAL/mac-relay && npm install
 # Generate a random relay key (user doesn't need to choose this)
 MAC_RELAY_KEY=$(openssl rand -hex 16)
 echo "Generated MAC_RELAY_KEY: $MAC_RELAY_KEY"
+
+# Detect binary paths — works for both Intel (/usr/local/bin) and Apple Silicon (/opt/homebrew/bin)
+NODE_PATH=$(which node)
+NGROK_PATH=$(which ngrok)
+echo "node: $NODE_PATH | ngrok: $NGROK_PATH"
 ```
 
 Save `MAC_RELAY_KEY` — you'll use it on both Mac and VPS.
@@ -215,7 +220,7 @@ cat > ~/Library/LaunchAgents/com.viral.mac-relay.plist << EOF
     <string>com.viral.mac-relay</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/node</string>
+        <string>$NODE_PATH</string>
         <string>$HOME/VIRAL/mac-relay/server.js</string>
     </array>
     <key>WorkingDirectory</key>
@@ -251,7 +256,7 @@ cat > ~/Library/LaunchAgents/com.viral.ngrok.plist << EOF
     <string>com.viral.ngrok</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/ngrok</string>
+        <string>$NGROK_PATH</string>
         <string>http</string>
         <string>--domain=$NGROK_DOMAIN</string>
         <string>3737</string>
