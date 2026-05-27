@@ -45,20 +45,81 @@ Have these accounts/keys ready — Claude will ask for them one by one:
 
 ## How it works
 
-Two processes, two machines:
+### System architecture
 
-```
-Your Mac                          VPS
-─────────────────                 ─────────────────────────
-message_poller.py  ──────────→   viral_bot.py
-mac-relay/server.js ←─────────   (APScheduler: 10 daily crons)
-ngrok tunnel                      SideShift API
-                                  Gemini (LLM)
-                                  Slack SDK
-                                  Telegram Bot API
+```mermaid
+graph TB
+    subgraph MAC["💻 Your Mac  (Full Disk Access required)"]
+        RELAY["mac-relay\nNode.js · port 3737\nlaunchd service"]
+        POLLER["message_poller.py\npolls iMessage DB\nevery 2 min"]
+        DB[("iMessage\nchat.db")]
+        NGROK["ngrok tunnel\nstatic domain"]
+    end
+
+    subgraph VPS["🖥️ VPS  (Ubuntu 24.04 · always-on)"]
+        BOT["viral_bot.py\n10 daily crons\nTelegram handlers"]
+    end
+
+    TG(["📱 Telegram\n(your phone)"])
+    SS(["📊 SideShift API\nposts · analytics · payouts"])
+    SLACK(["💬 Slack TVA\ncampaign channels"])
+    AI(["🤖 Gemini AI\nmessage generation"])
+
+    BOT -->|"POST /send-group\nvia HTTPS"| NGROK
+    NGROK -->|"→ localhost:3737"| RELAY
+    RELAY -->|"AppleScript\nosascript"| DB
+
+    POLLER -->|"sqlite3 SELECT"| DB
+    POLLER -->|"classify + draft reply"| AI
+    POLLER -->|"alert + inline buttons"| TG
+
+    BOT -->|"reports · alerts · briefs"| TG
+    TG -->|"manager taps button"| BOT
+    BOT -->|"posts · analytics · payouts"| SS
+    BOT -->|"read channels (24h)"| SLACK
+    BOT -->|"generate iMessages"| AI
 ```
 
-**Why does it need a Mac?** iMessage requires Full Disk Access on a physical Mac with your Apple ID. No cloud platform can proxy this. The mac-relay bridges your VPS to your Mac's iMessage database via an ngrok tunnel.
+### Creator pipeline
+
+Creators move through 5 states. The bot adjusts its cadence automatically.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> onboarding : creator added
+    onboarding --> warm_up : first post
+    warm_up --> active : >5 posts or >7 days
+    active --> silent : 48h no post
+    silent --> active : new post
+    silent --> at_risk : 3 ignored follow-ups
+    at_risk --> [*] : contact paused · manager alerted
+```
+
+### Incoming message flow
+
+Every iMessage a creator sends becomes a classified Telegram alert within 2 minutes.
+
+```mermaid
+graph LR
+    A(["💬 Creator\nsends iMessage"])
+    B["message_poller.py\nreads chat.db\nevery 2 min"]
+    C{{"Gemini\nclassifier"}}
+    D1["📹 Draft video\nApprove · Changes · Reject"]
+    D2["❓ Question\nAI draft reply ready"]
+    D3["🚨 Complaint\nurgent alert"]
+    D4["✅ Update\nnotification"]
+    E(["📱 Telegram\ninline buttons"])
+    F(["👤 Manager\ntaps button"])
+    G["viral_bot.py\n→ mac-relay → ngrok"]
+    H(["💬 Reply\ndelivered via iMessage"])
+
+    A --> B --> C
+    C --> D1 & D2 & D3 & D4
+    D1 & D2 & D3 & D4 --> E --> F --> G --> H
+```
+
+---
 
 ## Daily schedule
 
