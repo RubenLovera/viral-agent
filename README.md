@@ -119,6 +119,42 @@ graph LR
     D1 & D2 & D3 & D4 --> E --> F --> G --> H
 ```
 
+### Creator memory
+
+Each creator has a profile that builds up over time from multiple sources. When the bot generates a message, it reads all four layers and combines them with shared campaign context before calling Gemini.
+
+```mermaid
+flowchart LR
+    subgraph WRITERS[" "]
+        SS["📊 SideShift API\nposts · views · payouts"]
+        MP["message_poller.py\niMessages from creator"]
+        VB["viral_bot.py\ncrons + state transitions"]
+    end
+
+    subgraph PROFILE["📁 creators/{id}.json  —  one file per creator"]
+        ST["① state\nposts · views · progress %\nchannel · days since post\n─────────────────\nupdated: 6 AM daily"]
+        EV["② events\nfirst_post · warmup_complete\nstate_change · at_risk\n─────────────────\nupdated: on each milestone"]
+        IX["③ interactions\nincoming messages classified\nDRAFT · QUESTION · COMPLAINT\n─────────────────\nupdated: every 2 min (Mac → VPS)"]
+        AC["④ actions\noutgoing messages sent by bot\nstatus_check · onboarding · nudges\n─────────────────\nupdated: on every iMessage sent"]
+    end
+
+    subgraph SHARED["Shared context  (injected at send time)"]
+        BR["campaign_brief.md\nclient brand context"]
+        TC["tva_context.md\ndaily Slack brief"]
+        VP["voice_profile.json\nmanager tone + phrases"]
+    end
+
+    SS -->|"6 AM\nstatus_check"| ST
+    VB -->|"milestone reached\nor state transition"| EV
+    MP -->|"classify → rsync\nmerge at 6 AM"| IX
+    VB -->|"logged after\nevery send"| AC
+
+    ST & EV & IX & AC --> GM
+    BR & TC & VP --> GM
+    GM["🤖 Gemini\ngenerates personalized\niMessage for this creator"]
+    GM --> OUT["💬 iMessage\ndelivered via mac-relay"]
+```
+
 ---
 
 ## Daily schedule
