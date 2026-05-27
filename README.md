@@ -2,9 +2,47 @@
 
 Autonomous UGC creator coordination system for The Viral App (TVA) managers.
 
-Sends daily status updates to creators via iMessage, tracks post progress via SideShift, reads TVA Slack for campaign context, and reports everything to a manager's Telegram.
+Sends daily status updates to creators via iMessage, tracks post progress via SideShift, reads TVA Slack for campaign context, and reports everything to your Telegram.
 
-## Architecture
+---
+
+## Install in 2 steps
+
+**This system is installed entirely through Claude Code.** You don't need to write any code or run any commands manually — Claude does it for you.
+
+### Step 1 — Clone the repo
+
+```bash
+git clone https://github.com/RubenLovera/viral-agent.git ~/VIRAL
+```
+
+### Step 2 — Open in Claude Code
+
+```bash
+cd ~/VIRAL
+claude
+```
+
+That's it. Claude will read the installation guide and walk you through the entire setup interactively — asking for your API keys, configuring your Mac, and setting up your VPS. You only need to do the things Claude literally can't do (like clicking a button in System Settings or creating a Telegram bot).
+
+**Installation takes ~30-45 minutes.**
+
+---
+
+## What you'll need before starting
+
+Have these accounts/keys ready — Claude will ask for them one by one:
+
+- [ ] VPS running Ubuntu 24.04 (IP + root password)
+- [ ] Telegram bot token (create via @BotFather)
+- [ ] SideShift API key (app.sideshift.app → Settings → API Keys)
+- [ ] SideShift Program ID (your client's program)
+- [ ] Gemini API key (aistudio.google.com)
+- [ ] ngrok account (ngrok.com — free tier)
+
+---
+
+## How it works
 
 Two processes, two machines:
 
@@ -12,29 +50,14 @@ Two processes, two machines:
 Your Mac                          VPS
 ─────────────────                 ─────────────────────────
 message_poller.py  ──────────→   viral_bot.py
-mac-relay/server.js ←─────────   (reads iMessages, sends iMessages)
-ngrok tunnel                     APScheduler (10 crons)
-                                 SideShift API
-                                 Gemini (LLM)
-                                 Slack SDK
-                                 Telegram Bot API
+mac-relay/server.js ←─────────   (APScheduler: 10 daily crons)
+ngrok tunnel                      SideShift API
+                                  Gemini (LLM)
+                                  Slack SDK
+                                  Telegram Bot API
 ```
 
-**Why does it need a Mac?** iMessage requires Full Disk Access on a physical Mac with your Apple ID. No SaaS platform can proxy this. The mac-relay bridges your VPS to your Mac's iMessage database via an ngrok tunnel.
-
-## Prerequisites
-
-- Mac with iMessage (Apple ID logged in, Full Disk Access for Terminal)
-- VPS running Ubuntu 24.04
-- ngrok free account (1 static domain)
-- Telegram bot (@BotFather)
-- SideShift API key
-- Gemini API key
-- TVA Slack tokens (optional, for Slack briefs)
-
-## Install
-
-See [SETUP.md](SETUP.md) for the full installation guide (~2 hours).
+**Why does it need a Mac?** iMessage requires Full Disk Access on a physical Mac with your Apple ID. No cloud platform can proxy this. The mac-relay bridges your VPS to your Mac's iMessage database via an ngrok tunnel.
 
 ## Daily schedule
 
@@ -63,40 +86,9 @@ See [SETUP.md](SETUP.md) for the full installation guide (~2 hours).
 | `/slackbrief` | Read Slack channels now |
 | `/classify <text>` | Classify an iMessage (draft/question/complaint/update/other) |
 | `/remap <name> <chat_id>` | Reassign creator's chat identifier |
-| `/check` | Run Buenos Días Check now |
-| `/warmup` | Run Warm-up Check now |
-| `/digest` | Run Nightly Digest now |
-| `/onboarding` | Run Onboarding Check now |
 
-## Repo structure
+## Multiple managers
 
-```
-viral-agent/
-├── agents/
-│   └── viral_bot.py              ← VPS bot (all config via .env)
-├── scripts/
-│   ├── message_poller.py         ← Mac-side: polls iMessages → VPS
-│   └── generate_voice_profile.py ← Mac-side: generates your voice profile
-├── mac-relay/
-│   ├── server.js                 ← Mac-side: HTTP bridge for iMessage
-│   └── package.json
-├── templates/
-│   ├── .env.viral.example        ← All env vars documented
-│   ├── creators_map.json.example ← Creator roster format
-│   ├── campaign_brief.md.example ← Campaign brief template
-│   ├── launchd/                  ← Mac auto-start services
-│   └── systemd/                  ← VPS auto-start service
-├── requirements.txt
-├── SETUP.md                      ← Full installation guide
-└── .gitignore
-```
+Each TVA manager runs their own isolated instance — their own Telegram bot, SideShift key, ngrok domain, and creator roster. Multiple instances can run on the same VPS without interference.
 
-## Per-manager isolation
-
-Each TVA manager runs their own instance with their own:
-- Directory: `/root/culver-os/viral-bot-{name}/`
-- Env file: `/root/culver-os/.env.viral-{name}`
-- Systemd service: `viral-bot-{name}.service`
-- Telegram bot, SideShift key, ngrok domain, creators_map.json
-
-Multiple instances can run on the same VPS without interference.
+To install for a new manager, they clone the repo and run `claude` from the directory.
