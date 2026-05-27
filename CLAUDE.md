@@ -192,8 +192,13 @@ cat > ~/VIRAL/.env << EOF
 MAC_RELAY_KEY=$MAC_RELAY_KEY
 GEMINI_API_KEY=$GEMINI_API_KEY
 SIDESHIFT_API_KEY=$SIDESHIFT_API_KEY
+VIRAL_TOKEN=$VIRAL_TOKEN
+CHAT_ID=$CHAT_ID
+VIRAL_THREAD_ID=$VIRAL_THREAD_ID
 VPS_HOST=$VPS_IP
 VPS_USER=root
+VPS_PASS=$VPS_PASS
+DATA_DIR=/root/viral-agent/instances/$MANAGER_SLUG/data
 EOF
 ```
 
@@ -278,6 +283,77 @@ curl -s https://$NGROK_DOMAIN/health
 ```
 
 Expected: `{"status":"ok"}`. If it fails, check `~/VIRAL/mac-relay/ngrok.log` and diagnose before continuing.
+
+---
+
+### STEP 8b — message_poller setup (iMessage receiver)
+
+This is what makes incoming creator messages reach Telegram. Without this step, the bot can send iMessages to creators but can't receive their replies.
+
+First, grant Full Disk Access to python3 (needed to read the iMessage database from a background service):
+
+Tell the user:
+> "Necesito agregar python3 a Full Disk Access también, para que el poller pueda leer iMessages en segundo plano."
+
+Instructions:
+1. System Settings → Privacy & Security → Full Disk Access
+2. Click **+**
+3. Press `Cmd+Shift+G` and paste: `/usr/local/bin/python3` (or run `which python3` to find the exact path)
+4. Click Open and make sure the toggle is ON
+
+Ask: "¿Listo?" — wait for confirmation.
+
+Then install the launchd service automatically. Get the python3 path:
+
+```bash
+PYTHON3_PATH=$(which python3)
+```
+
+Write the plist:
+
+```bash
+cat > ~/Library/LaunchAgents/com.viral.message-poller.plist << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.viral.message-poller</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$PYTHON3_PATH</string>
+        <string>$HOME/VIRAL/scripts/message_poller.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>$HOME/VIRAL</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>$HOME/VIRAL/mac-relay/poller.log</string>
+    <key>StandardErrorPath</key>
+    <string>$HOME/VIRAL/mac-relay/poller.log</string>
+</dict>
+</plist>
+EOF
+```
+
+Load it:
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.viral.message-poller.plist
+```
+
+Wait 5 seconds and verify it started:
+
+```bash
+launchctl list | grep com.viral.message-poller
+tail -5 ~/VIRAL/mac-relay/poller.log
+```
+
+Expected in logs: `[poller] Starting — checking 120s interval` and `Gemini: ✅`. If Gemini shows ❌, the env vars aren't loading — check that `~/VIRAL/.env` has `GEMINI_API_KEY` set.
 
 ---
 

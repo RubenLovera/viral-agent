@@ -1,7 +1,9 @@
 # Secrets — NEVER commit
-.env.viral*
 .env
-*.env
+.env.viral
+.env.viral-*
+# Always track .example templates even if they match other patterns
+!*.example
 
 # Runtime data — per-manager, not tracked in repo
 data/

@@ -33,10 +33,6 @@ CREATORS_FILE      = DATA_DIR / 'creators_map.json'
 VOICE_PROFILE_FILE = DATA_DIR / 'voice_profile.json'
 CREATORS_DIR       = DATA_DIR / 'creators'  # local interactions cache
 
-VPS_HOST           = 'root@187.127.255.6'
-VPS_CREATORS_DIR   = '/root/culver-os/viral-bot/data/creators/'
-SSH_PASS           = 'Dios-Es-Amor123'
-
 APPLE_EPOCH  = 978307200
 POLL_INTERVAL = 120  # seconds
 
@@ -63,10 +59,15 @@ def load_env():
 
 load_env()
 
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-VIRAL_TOKEN    = os.environ.get('VIRAL_TOKEN', '')
-CHAT_ID        = int(os.environ.get('CHAT_ID', '0'))
-THREAD_ID      = int(os.environ.get('VIRAL_THREAD_ID', '0')) or None
+GEMINI_API_KEY   = os.environ.get('GEMINI_API_KEY', '')
+VIRAL_TOKEN      = os.environ.get('VIRAL_TOKEN', '')
+CHAT_ID          = int(os.environ.get('CHAT_ID', '0'))
+THREAD_ID        = int(os.environ.get('VIRAL_THREAD_ID', '0')) or None
+VPS_HOST         = os.environ.get('VPS_HOST', '')
+VPS_USER         = os.environ.get('VPS_USER', 'root')
+SSH_PASS         = os.environ.get('VPS_PASS', '')
+_vps_data_dir    = os.environ.get('DATA_DIR', '/root/viral-agent/instances/default/data')
+VPS_CREATORS_DIR = f'{_vps_data_dir}/creators/'
 
 _gemini = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
@@ -137,7 +138,7 @@ def sync_interactions_to_vps() -> None:
                 '--include=*.interactions.jsonl', '--exclude=*',
                 '-e', 'ssh -o StrictHostKeyChecking=no',
                 str(CREATORS_DIR) + '/',
-                f'{VPS_HOST}:{VPS_CREATORS_DIR}',
+                f'{VPS_USER}@{VPS_HOST}:{VPS_CREATORS_DIR}',
             ],
             timeout=20, capture_output=True, check=False,
         )
@@ -244,7 +245,7 @@ def generate_draft_reply(creator_name: str, message_text: str) -> str | None:
     )
 
     try:
-        resp = _gemini.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+        resp = _gemini.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         return resp.text.strip()
     except Exception as e:
         print(f'  [draft] Gemini error: {e}')
@@ -299,7 +300,7 @@ Message: "{text}"
 Reply with ONLY the label (one lowercase word)."""
 
     try:
-        resp = _gemini.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+        resp = _gemini.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         label = resp.text.strip().lower().split()[0]
         return label if label in LABELS else 'other'
     except Exception as e:
