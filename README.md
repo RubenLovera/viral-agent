@@ -6,24 +6,25 @@ Sends daily status updates to creators via iMessage, tracks post progress via Si
 
 ---
 
-## Install in 2 steps
+## Install
 
-**This system is installed entirely through Claude Code.** You don't need to write any code or run any commands manually — Claude does it for you.
+**This system is installed entirely through Claude Code.** You don't run commands — Claude does everything for you.
 
-### Step 1 — Clone the repo
-
-```bash
-git clone https://github.com/RubenLovera/viral-agent.git ~/VIRAL
-```
-
-### Step 2 — Open in Claude Code
+### Step 1 — Open Claude Code
 
 ```bash
-cd ~/VIRAL
 claude
 ```
 
-That's it. Claude will read the installation guide and walk you through the entire setup interactively — asking for your API keys, configuring your Mac, and setting up your VPS. You only need to do the things Claude literally can't do (like clicking a button in System Settings or creating a Telegram bot).
+### Step 2 — Paste this prompt
+
+```
+Install the VIRAL Agent on this Mac and VPS.
+Repo: https://github.com/RubenLovera/viral-agent.git
+Clone it to ~/VIRAL, read the CLAUDE.md inside, and follow the installation instructions step by step.
+```
+
+That's it. Claude will clone the repo, ask you for your credentials one by one, and set up everything — Mac-side and VPS — automatically.
 
 **Installation takes ~30-45 minutes.**
 

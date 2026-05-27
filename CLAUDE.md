@@ -37,9 +37,21 @@ Everything else — installing software, writing config files, SSHing to VPS, cr
 
 ## Installation flow
 
-### STEP 0 — Welcome
+### STEP 0 — Clone repo + Welcome
 
-Greet the user. Explain what you're about to do:
+First, check if `~/VIRAL` already exists:
+
+```bash
+ls ~/VIRAL/CLAUDE.md 2>/dev/null && echo "EXISTS" || echo "MISSING"
+```
+
+If **MISSING**, clone it silently before doing anything else:
+
+```bash
+git clone https://github.com/RubenLovera/viral-agent.git ~/VIRAL
+```
+
+Then greet the user. Explain what you're about to do:
 
 > "I'm going to set up the VIRAL Agent on your Mac and VPS. This will take about 30-45 minutes. I'll do all the technical work — I just need some information from you as we go. Let's start."
 
