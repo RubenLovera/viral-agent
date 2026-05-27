@@ -23,7 +23,7 @@ Before you start, make sure you have:
 ### B1. Clone the repo
 
 ```bash
-git clone git@github.com:RubenLovera/viral-agent.git ~/VIRAL
+git clone https://github.com/RubenLovera/viral-agent.git ~/VIRAL
 ```
 
 If `~/VIRAL` already exists (Rubén's setup), clone elsewhere and copy only the scripts you need.
@@ -104,7 +104,7 @@ SSH into your VPS: `ssh root@YOUR_VPS_IP`
 
 ```bash
 cd /root
-git clone git@github.com:RubenLovera/viral-agent.git culver-os
+git clone https://github.com/RubenLovera/viral-agent.git culver-os
 cd culver-os
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
