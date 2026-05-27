@@ -1,0 +1,14 @@
+[Unit]
+Description=VIRAL Bot — YOUR_NAME
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/culver-os
+EnvironmentFile=/root/culver-os/.env.viral-yourname
+ExecStart=/root/culver-os/.venv/bin/python agents/viral_bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

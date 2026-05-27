@@ -1,0 +1,17 @@
+# Secrets — NEVER commit
+.env.viral*
+.env
+*.env
+
+# Runtime data — per-manager, not tracked in repo
+data/
+knowledge/tva_context.md
+mac-relay/node_modules/
+mac-relay/*.log
+scripts/__pycache__/
+agents/__pycache__/
+*.pyc
+__pycache__/
+.venv/
+venv/
+*.log

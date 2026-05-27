@@ -1,0 +1,16 @@
+[
+  {
+    "creator_name": "Creator Full Name",
+    "chat_identifier": "chat+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "sideshift_id": "SIDESHIFT_CONTRACTOR_ID",
+    "contract_status": "active",
+    "campaigns": ["your-client-campaign-name"]
+  },
+  {
+    "creator_name": "Second Creator",
+    "chat_identifier": "chat+YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+    "sideshift_id": "SIDESHIFT_CONTRACTOR_ID_2",
+    "contract_status": "pending",
+    "campaigns": ["your-client-campaign-name"]
+  }
+]
