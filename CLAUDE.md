@@ -37,6 +37,11 @@ TVA ayuda a apps a escalar de cero a millones de MRR. Tres pilares: Creator Netw
 | `/creator-db` | Gestionar la base de 187 creadores: filtrar, buscar, añadir, actualizar, shortlist |
 | `/creator-outreach` | Redactar textos de contacto: email, DM, WhatsApp, iMessage, SideShift |
 | `/outreach-blast` | Blast masivo de invites: iMessage (osascript) + Gmail draft a toda la Creator DB filtrada |
+| `/imessage-report` | Reporte de estado de todos los creadores desde los grupos de iMessage (publicando, warm-up, onboarding) |
+| `/daily-performance-report` | Reporte operacional del día: semáforo de alertas, posts publicados hoy, drafts pendientes, action items |
+| `/weekly-performance-report` | Reporte semanal: métricas SideShift + pipeline completo de creadores + plan para la semana siguiente |
+| `/monthly-performance-report` | Reporte mensual en inglés para el founder/cliente: narrativa ejecutiva del mes + proyección |
+| `/tiktok-research` | Motor de investigación TikTok: videos virales, creadores, sonidos, comentarios, tendencias, hashtags — acepta lenguaje natural |
 
 ### B. Creator DB CLI — 16 Comandos (`python3 tools/creators.py <cmd>`)
 
@@ -104,7 +109,41 @@ TVA ayuda a apps a escalar de cero a millones de MRR. Tres pilares: Creator Netw
 
 ---
 
-### 2. Cuando Rubén menciona un creador por nombre
+### 2. Cuando Rubén quiere investigar TikTok
+
+**Acción automática:** Invocar `/tiktok-research` sin preguntar.
+
+| Intent | Acción |
+|--------|--------|
+| "busca los videos de [marca]", "videos virales de [marca]" | Invocar `/tiktok-research` |
+| "cuáles son los creadores ugc de [marca]", "qué creadores usan [marca]" | Invocar `/tiktok-research` |
+| "qué sonidos están en tendencia", "trending sounds de [niche]" | Invocar `/tiktok-research` |
+| "qué comentarios dejan en videos de [marca]" | Invocar `/tiktok-research` |
+| "qué hashtags usa [cuenta]", "qué hashtags funcionan para [niche]" | Invocar `/tiktok-research` |
+| "investiga el TikTok de [marca]", "analiza el contenido de [marca]" | Invocar `/tiktok-research` |
+| "qué está en tendencia en [niche] en TikTok" | Invocar `/tiktok-research` |
+
+---
+
+### 3. Cuando Rubén pide reporte de estado desde iMessage
+
+**Acción automática:** Invocar `/imessage-report` sin preguntar.
+
+| Intent | Acción |
+|--------|--------|
+| "reporte de creadores", "estado de los creadores" | Invocar `/imessage-report` |
+| "cuántos están publicando", "cuántos en warm-up" | Invocar `/imessage-report` |
+| "reporte de iMessage", "analiza los grupos", "revisa los chats" | Invocar `/imessage-report` |
+| "cuántos creadores tengo activos", "pipeline de creadores" | Invocar `/imessage-report` |
+| "health check de creadores", "cómo van los grupos" | Invocar `/imessage-report` |
+| "cuántos van a publicar cuando terminen el warm-up" | Invocar `/imessage-report` |
+| "daily report de [cliente]", "cómo va hoy", "qué necesito hacer hoy" | Invocar `/daily-performance-report` |
+| "weekly report de [cliente]", "reporte semanal", "cómo fue la semana" | Invocar `/weekly-performance-report` |
+| "monthly report de [cliente]", "reporte mensual", "reporte para el cliente", "reporte para Joe" | Invocar `/monthly-performance-report` |
+
+---
+
+### 3. Cuando Rubén menciona un creador por nombre
 
 **Acción automática:** Buscar en la DB local PRIMERO, luego en SideShift si aplica.
 
@@ -342,6 +381,41 @@ Consultar vault para: playbooks, SOPs, templates, historial de campañas, info d
 - Aprobar: hook fuerte en 1-2s, app visible, video <30s TikTok / <60s Reels, audio limpio, CTA presente
 - Rechazar: off-brief, competencia visible, calidad pésima, creador no usó el producto
 - Feedback: específico con timestamps, tono positivo, nunca reescribir el script
+
+---
+
+## VIRAL Bot (CulverOS)
+
+El bot de Telegram que reporta métricas de SkinQueens diariamente. Vive en CulverOS pero está documentado aquí por conveniencia.
+
+**Código fuente (Mac):** `~/culver-os/agents/viral_bot.py`  
+**Deployado en VPS:** `/root/culver-os/agents/viral_bot.py`  
+**Config VPS:** `/root/culver-os/.env.viral`  
+**Service:** `viral-bot.service` — enabled, corriendo desde 2026-05-20  
+**Token Telegram:** `8929948963:AAEYLOCxs3EoD248cyyOImrprdnyPsfVY40`  
+**CHAT_ID:** `-1003951624858` | **VIRAL_THREAD_ID:** `546`  
+
+**Crons configurados (timezone: America/Los_Angeles):**
+- 9:00 AM → `morning_report` — métricas completas SkinQueens
+- 11:00 AM → `buenos_dias_check` — alerta creadores sin postear en 24h
+- 5:00 PM → `overdue_check` — revisión de contratos overdue
+
+**Comandos Telegram:**
+- `/report` — reporte manual inmediato
+- `/status` — estado del bot
+- `/check` — buenos días check manual
+
+**Deployar cambios:**
+```bash
+export SSHPASS='Dios-Es-Amor123'
+python3 -m py_compile ~/culver-os/agents/viral_bot.py  # verificar syntax
+sshpass -e rsync -az -e "ssh -o StrictHostKeyChecking=no" \
+  ~/culver-os/agents/viral_bot.py root@187.127.255.6:/root/culver-os/agents/viral_bot.py
+sshpass -e ssh -o StrictHostKeyChecking=no root@187.127.255.6 \
+  "systemctl restart viral-bot && systemctl status viral-bot --no-pager | head -5"
+```
+
+**mac-relay:** NO activo. `MAC_RELAY_URL` vacío — funciones de iMessage hacen skip silencioso.
 
 ---
 
