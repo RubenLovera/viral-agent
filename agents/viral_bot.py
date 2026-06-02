@@ -72,6 +72,12 @@ CLIENT_NAME  = os.environ.get('CLIENT_NAME', 'SkinQueens')
 MANAGER_NAME = os.environ.get('MANAGER_NAME', 'Ruben')
 VPS_HOST     = os.environ.get('VPS_HOST', '')
 
+WARMUP_DAYS = 3  # warm-up period in days (3-day warm-up per campaign policy)
+
+FORBIDDEN_STRINGS = [
+    'CREATOR OFF CAMPAIGN', 'OFF CAMPAIGN', 'DO NOT CONTACT', 'BLACKLIST',
+]
+
 def _ss_headers():
     return {'x-api-key': os.environ['SIDESHIFT_API_KEY']}
 
@@ -177,6 +183,9 @@ async def send_imessage(to: str, message: str) -> bool:
 
 
 async def send_group_imessage(chat_identifier: str, message: str) -> bool:
+    if any(f in message for f in FORBIDDEN_STRINGS):
+        logger.error('FORBIDDEN string in message — aborting send to %s: %s', chat_identifier, message[:60])
+        return False
     if not MAC_RELAY_URL:
         return False
     try:
@@ -248,7 +257,7 @@ async def morning_report(bot: Bot):
     # ── Top 5 videos ──
     try:
         videos_data = await _ss('/analytics/videos', {
-            'program': SS_PROGRAM,
+            'programId': SS_PROGRAM,
             'limit': 5,
             'sortBy': 'views',
             'sortOrder': 'desc',
@@ -274,7 +283,7 @@ async def morning_report(bot: Bot):
     # ── Posts yesterday ──
     try:
         posts_data  = await _ss('/posts', {
-            'program': SS_PROGRAM,
+            'programId': SS_PROGRAM,
             'fromDate': _yesterday_str(),
             'toDate': _today_str(),
             'limit': 100,
@@ -417,7 +426,7 @@ async def nightly_digest(bot: Bot):
         import calendar
         today_midnight_utc = calendar.timegm(date.today().timetuple())
         posts_data  = await _ss('/posts', {
-            'program': SS_PROGRAM,
+            'programId': SS_PROGRAM,
             'limit':   500,
         })
         all_posts_raw = posts_data.get('items', posts_data.get('data', []))
@@ -813,7 +822,7 @@ def compute_channel_state(ss_id: str, posts_by_cid: dict) -> dict:
 
     count = len(posts)
 
-    if days_in <= 7 and count <= 5:
+    if days_in <= WARMUP_DAYS:
         state = 'warm_up'
     elif days_since >= 2:
         state = 'silent'
@@ -916,6 +925,7 @@ Rules:
 - 4-6 lines max, no bullet points, conversational iMessage style
 - End with a brief motivational line appropriate for their state
 - Do NOT use "Good morning" as greeting if it sounds repetitive; vary it naturally
+- Write ONLY in English — NEVER use Spanish or any other language
 - Write ONLY the message text, nothing else"""
 
     result = await _llm_msg(prompt)
@@ -947,6 +957,7 @@ Rules:
 - Mention they need to log into SideShift to activate and start posting
 - Offer to help if they have questions
 - 3-4 lines, iMessage style, sounds like the sample phrases above
+- Write ONLY in English — NEVER use Spanish or any other language
 - Write ONLY the message text, nothing else"""
 
     result = await _llm_msg(prompt)
@@ -977,6 +988,7 @@ Rules:
 - Mention it's a paid UGC opportunity for content they're already making
 - Ask if they're interested and offer to send details
 - 3-4 lines max, iMessage style, sounds like the sample phrases above
+- Write ONLY in English — NEVER use Spanish or any other language
 - Write ONLY the message text, nothing else"""
 
     result = await _llm_msg(prompt)
@@ -991,29 +1003,32 @@ async def llm_onboarding_msg(name: str, ss_id: str = '') -> str:
     if vp:
         brief_section = f'\nCampaign context:\n{brief}\n' if brief else ''
         profile_section = f'\n{_profile_context(ss_id)}\n' if ss_id else ''
-        prompt = f"""You are a UGC campaign manager writing a short iMessage to a creator who just joined {CLIENT_NAME} but hasn't posted yet.
+        prompt = f"""You are a UGC campaign manager writing a short iMessage to a creator who just joined {CLIENT_NAME} but hasn't started posting yet.
 Write exactly in this person's voice:
 
 {_voice_context(vp)}
 {brief_section}{profile_section}
 Creator first name: {first}
 
-Context: They set up their SideShift account but have 0 posts. Help them make their first one today.
+Context: They signed their contract and set up their SideShift account. Before they start posting, they need to do a {WARMUP_DAYS}-day warm-up period so their account is ready. You (the manager) will kick off their warm-up and guide them day by day.
 
 Rules:
-- Welcome them and encourage them to make their first post
-- Mention: download the {CLIENT_NAME} app, try it, and film a quick TikTok about their first experience
+- Welcome them warmly to the campaign
+- Let them know they'll start with a short {WARMUP_DAYS}-day warm-up to get their account ready before posting
+- Keep it light and exciting — warm-up is quick and you'll guide them through it
+- Do NOT ask them to post yet — warm-up comes first
 - Casual and encouraging, not pushy
 - 3-4 lines, iMessage style
+- Write ONLY in English — NEVER use Spanish or any other language
 - Write ONLY the message text, nothing else"""
         result = await _llm_msg(prompt)
         if result:
             return result
     return (
-        f'Hey {first}! 👋 Welcome to {CLIENT_NAME} — so excited to have you!\n'
-        f'Whenever you\'re ready: download the app, try it out, '
-        f'and film a quick TikTok showing your experience. That\'s your first post! 🎬\n'
-        f'Any questions? I\'m here 😊'
+        f'Hey {first}! 👋 Welcome to {CLIENT_NAME} — so excited to have you on the team!\n'
+        f'Before you start posting, we\'ll do a quick {WARMUP_DAYS}-day warm-up to get your account ready. '
+        f'I\'ll guide you through each day — it\'s super easy 😊\n'
+        f'Stay tuned, I\'ll kick things off for you shortly!'
     )
 
 
@@ -1032,13 +1047,14 @@ Write exactly in this person's voice:
 {brief_section}{profile_section}
 Creator first name: {first}
 
-Context: They posted consistently for 7 days through warm-up. They're now in the main {CLIENT_NAME} campaign and earning full rates. Goal is {POSTS_GOAL} total posts.
+Context: They completed their {WARMUP_DAYS}-day warm-up. They're now in the main {CLIENT_NAME} campaign and earning full rates. Goal is {POSTS_GOAL} total posts.
 
 Rules:
 - Celebrate their warm-up completion warmly
 - Let them know they're now in the main campaign earning full rates
 - Remind them the goal is {POSTS_GOAL} posts total — they're on their way!
 - Energetic and motivating, 4-5 lines
+- Write ONLY in English — NEVER use Spanish or any other language
 - Write ONLY the message text, nothing else"""
         result = await _llm_msg(prompt)
         if result:
@@ -1048,6 +1064,38 @@ Rules:
         f'You\'re now officially in the main {CLIENT_NAME} campaign and earning at full rate. '
         f'Your goal: {POSTS_GOAL} total posts.\n\n'
         f'Keep that momentum going — you\'re crushing it! 🚀'
+    )
+
+
+async def llm_offboard_msg(name: str, ss_id: str = '') -> str:
+    """Polite farewell message when a creator is moved off campaign."""
+    vp = load_voice_profile()
+    first = name.split()[0]
+    if vp:
+        profile_section = f'\n{_profile_context(ss_id)}\n' if ss_id else ''
+        prompt = f"""You are a UGC campaign manager writing a short, warm farewell iMessage to a creator who is leaving the {CLIENT_NAME} campaign.
+Write exactly in this person's voice:
+
+{_voice_context(vp)}
+{profile_section}
+Creator first name: {first}
+
+Context: They are leaving the campaign. Keep the door open — thank them sincerely, wish them well, and make them feel good about their time in the campaign.
+
+Rules:
+- Warm and genuine, not corporate
+- Thank them for their content and participation
+- Leave the door open for future collaborations
+- 3-4 lines, iMessage style
+- Write ONLY in English — NEVER use Spanish or any other language
+- Write ONLY the message text, nothing else"""
+        result = await _llm_msg(prompt)
+        if result:
+            return result
+    return (
+        f'Hey {first}! 👋 Just wanted to reach out personally to say thank you so much for being part of the {CLIENT_NAME} campaign.\n'
+        f'Your content was genuinely great and we really appreciated working with you. 🙏\n'
+        f'Hope our paths cross again on a future campaign — wishing you all the best! 🌟'
     )
 
 
@@ -1142,7 +1190,7 @@ async def status_check(bot: Bot):
 
     # Fetch SideShift data only for active creators (paginated)
     try:
-        all_posts = await _ss_paginate('/posts', {'program': SS_PROGRAM})
+        all_posts = await _ss_paginate('/posts', {'programId': SS_PROGRAM})
     except Exception as e:
         logger.error('Status Check: posts fetch failed: %s', e)
         all_posts = []
@@ -1243,6 +1291,18 @@ async def status_check(bot: Bot):
         cs       = channel_states.get(ss_id)
         cs_state = (cs or {}).get('state', 'active')
 
+        # ── Skip confirmed warm-up creators (they get messages from warmup_check) ──
+        start_date = entry.get('warmup_start_date', '')
+        if start_date and status == 'active':
+            try:
+                wu_days_in = (date.today() - date.fromisoformat(start_date)).days + 1
+                if wu_days_in <= WARMUP_DAYS and len(posts_by_cid.get(ss_id, [])) == 0:
+                    logger.info('Skipping status_check for warm-up creator: %s (day %d)', name, wu_days_in)
+                    skipped += 1
+                    continue
+            except ValueError:
+                pass
+
         # ── Cadence gate ──────────────────────────────────────────────────────
         send_ok, reason = should_contact(status, cs, cadence, chat_ident)
         if not send_ok:
@@ -1280,11 +1340,10 @@ async def status_check(bot: Bot):
 
         # ── Build message ─────────────────────────────────────────────────────
         if status == 'active':
-            contract   = contracts_by_cid.get(ss_id, {})
-            posts_done = contract.get('postsCompleted', contract.get('posts_done',
-                         len(posts_by_cid.get(ss_id, []))))
-            posts_goal = contract.get('postsGoal', contract.get('posts_goal', POSTS_GOAL))
+            contract      = contracts_by_cid.get(ss_id, {})
             creator_posts = posts_by_cid.get(ss_id, [])
+            posts_done    = len(creator_posts)  # always count from fresh API data — never use cached postsCompleted
+            posts_goal    = contract.get('postsGoal', contract.get('posts_goal', POSTS_GOAL))
             total_views   = sum(p.get('views', 0) for p in creator_posts)
             last_views    = None
             if creator_posts:
@@ -1352,26 +1411,78 @@ async def status_check(bot: Bot):
         )
         await send(bot, esc_msg)
 
+async def llm_warmup_day_msg(name: str, ss_id: str, day: int) -> str:
+    """Send a day-specific warm-up message with actionable tip (day 1, 2, or 3)."""
+    vp    = load_voice_profile()
+    brief = load_brief()
+    first = name.split()[0]
+
+    day_tips = {
+        1: (
+            f"It's Day 1 of your {WARMUP_DAYS}-day warm-up! "
+            f"Today's tip: spend 20-30 min scrolling your FYP and engaging with skincare/beauty content. "
+            f"Like, comment, and save videos — this trains the algorithm before you post {CLIENT_NAME} content."
+        ),
+        2: (
+            f"Day 2 of your warm-up! "
+            f"Today's tip: post 1-2 non-{CLIENT_NAME} videos — anything authentic in the beauty/skincare space. "
+            f"This builds your account credibility and makes your first {CLIENT_NAME} video land much better."
+        ),
+        3: (
+            f"Last day of warm-up! 🎉 "
+            f"Today's tip: do another 20-30 min of engagement on your FYP. "
+            f"Tomorrow you're ready to post your first {CLIENT_NAME} video! "
+            f"Do you have a draft ready? Send it over and I'll review it."
+        ),
+    }
+    tip = day_tips.get(day, day_tips[3])
+
+    if vp:
+        brief_section   = f'\nCampaign context:\n{brief}\n' if brief else ''
+        profile_section = f'\n{_profile_context(ss_id)}\n' if ss_id else ''
+        prompt = f"""You are a UGC campaign manager sending a warm-up day check-in to a creator.
+Write exactly in this person's voice:
+
+{_voice_context(vp)}
+{brief_section}{profile_section}
+Creator first name: {first}
+
+Content to convey (keep the substance, adapt the voice):
+{tip}
+
+Rules:
+- Sound exactly like the sample phrases above — same warmth, length, emoji style
+- Keep it friendly and encouraging, not pressuring
+- 3-4 lines max, conversational iMessage style
+- Write ONLY in English — NEVER use Spanish or any other language
+- Write ONLY the message text, nothing else"""
+        result = await _llm_msg(prompt)
+        if result:
+            return result
+    return f'Hey {first}! {tip}'
+
+
 async def llm_warmup_nudge_msg(name: str, ss_id: str, days_in: int, days_remaining: int) -> str:
-    """Mid-day nudge for at-risk warm-up creators."""
+    """Mid-day nudge for at-risk warm-up creators (no warmup_start_date set)."""
     vp    = load_voice_profile()
     brief = load_brief()
     first = name.split()[0]
     if vp:
         brief_section   = f'\nCampaign context:\n{brief}\n' if brief else ''
         profile_section = f'\n{_profile_context(ss_id)}\n' if ss_id else ''
-        prompt = f"""You are a UGC campaign manager sending a mid-day check-in to a creator in their warm-up week.
+        prompt = f"""You are a UGC campaign manager sending a mid-day check-in to a creator in their warm-up period.
 Write exactly in this person's voice:
 
 {_voice_context(vp)}
 {brief_section}{profile_section}
 Creator first name: {first}
-Context: Day {days_in} of 7 in warm-up, {days_remaining} days remaining. They need to post today to stay on track.
+Context: Day {days_in} of {WARMUP_DAYS} in warm-up, {days_remaining} days remaining. They need to post today to stay on track.
 
 Rules:
 - Friendly and encouraging, not pressuring
-- Mention they're in their warm-up week and today's post matters
+- Mention they're in their warm-up period and today's post matters
 - Keep it to 2-3 lines, iMessage style
+- Write ONLY in English — NEVER use Spanish or any other language
 - Write ONLY the message text, nothing else"""
         result = await _llm_msg(prompt)
         if result:
@@ -1386,77 +1497,112 @@ Rules:
 # ── Warm-up Check (2pm cron) ──────────────────────────────────────────────────
 
 async def warmup_check(bot: Bot):
-    """2 PM PT — dashboard of warm-up creators + nudge iMessage to at-risk ones."""
+    """2 PM PT — send day-specific warm-up messages to creators with warmup_start_date set.
+
+    Primary flow: uses warmup_start_date from creators_map (set via /setwarmup command).
+    - Day 1/2/3: sends day-specific tips
+    - Day > WARMUP_DAYS or posts > 0: skips (warm-up complete / already posting)
+
+    Fallback flow: creators detected as warm_up by compute_channel_state but without
+    warmup_start_date get a generic nudge (old behavior, prevents regression).
+    """
     logger.info('Running warmup check')
     cs_all       = load_channel_state()
     creators_map = load_creators_map()
     relay_ok     = bool(MAC_RELAY_URL and MAC_RELAY_KEY)
-    today_str    = _today_str()
+    today        = date.today()
+    today_str    = today.isoformat()
+    cadence      = load_cadence()
 
-    warmup_entries = []
+    lines       = ['🌱 <b>Warm-up Check</b>\n']
+    confirmed   = []  # (c, day_num, posts_count) — warmup_start_date set
+    unconfirmed = []  # (c, cs, days_in, days_remaining) — old-style detection, no start date
+
     for c in creators_map:
         ss_id  = c.get('sideshift_id', '')
         status = c.get('contract_status', '')
         if status != 'active' or not ss_id:
             continue
-        cs = cs_all.get(ss_id, {})
-        if cs.get('state') == 'warm_up':
-            warmup_entries.append((c, cs))
 
-    if not warmup_entries:
-        logger.info('Warmup check: no creators in warm_up state')
-        return
-
-    lines   = [f'🌱 <b>Warm-up Check</b> — {len(warmup_entries)} creadoras\n']
-    at_risk = []
-    cadence = load_cadence()
-
-    for c, cs in warmup_entries:
-        name       = c.get('creator_name', 'Creator')
-        ss_id      = c.get('sideshift_id', '')
+        cs         = cs_all.get(ss_id, {})
         posts      = cs.get('posts_count', 0)
-        days_since = cs.get('days_since_last')
-        first_date = cs.get('first_post_date', '')
+        start_date = c.get('warmup_start_date', '')
 
-        days_in = 0
-        if first_date:
+        if start_date:
             try:
-                days_in = (date.today() - date.fromisoformat(first_date)).days
+                start = date.fromisoformat(start_date)
+                day_num = (today - start).days + 1  # day 1 = start date
             except ValueError:
-                pass
+                continue
 
-        days_remaining = max(0, 7 - days_in)
-        bar = _progress_bar(posts, 5)
+            days_remaining = max(0, WARMUP_DAYS - day_num + 1)
+            bar = _progress_bar(min(day_num - 1, WARMUP_DAYS), WARMUP_DAYS)
 
-        # At risk: behind pace (expected ~1 post/day) and ≥2 days in
-        expected = min(days_in, 5)
-        is_at_risk = days_in >= 2 and posts < expected
+            if day_num > WARMUP_DAYS:
+                icon = '🏁'
+                lines.append(f'{icon} <b>{c.get("creator_name")}</b> — warm-up completo (día {day_num}) | {posts} posts')
+            elif posts > 0:
+                icon = '✅'
+                lines.append(f'{icon} <b>{c.get("creator_name")}</b> — día {day_num}/{WARMUP_DAYS} | ya publicó ({posts} posts)')
+            else:
+                icon = '🌱'
+                lines.append(f'{icon} <b>{c.get("creator_name")}</b> — día {day_num}/{WARMUP_DAYS} [{bar}] | {days_remaining}d restantes')
+                confirmed.append((c, day_num, posts))
+        elif cs.get('state') == 'warm_up':
+            # Old-style: detected as warm_up but no warmup_start_date — keep legacy nudge
+            first_date = cs.get('first_post_date', '')
+            days_in = 0
+            if first_date:
+                try:
+                    days_in = (today - date.fromisoformat(first_date)).days
+                except ValueError:
+                    pass
+            days_remaining = max(0, WARMUP_DAYS - days_in)
+            expected   = min(days_in, WARMUP_DAYS)
+            is_at_risk = days_in >= 2 and posts < expected
+            icon       = '⚠️' if is_at_risk else '🌱'
+            lines.append(f'{icon} <b>{c.get("creator_name")}</b> — día {days_in}/{WARMUP_DAYS} | sin start_date confirmada')
+            if is_at_risk:
+                unconfirmed.append((c, cs, days_in, days_remaining))
 
-        icon = '🚨' if is_at_risk else '✅'
-        last_str = f' | últ: {days_since}d' if days_since is not None else ''
-        lines.append(
-            f'{icon} <b>{name}</b> — {posts}/5 [{bar}]'
-            f' | día {days_in}/7 | {days_remaining}d restantes{last_str}'
-        )
-
-        if is_at_risk:
-            at_risk.append((c, cs, days_in, days_remaining))
+    if len(lines) == 1:
+        logger.info('Warmup check: no creators in warm-up')
+        return
 
     await send(bot, '\n'.join(lines))
 
-    if not at_risk:
-        return
-
-    # Send mid-day nudge to at-risk creators
+    # ── Send day-specific messages to confirmed warm-up creators ──────────────
     sent_ok = 0
-    for c, cs, days_in, days_remaining in at_risk:
+    for c, day_num, posts in confirmed:
         name       = c.get('creator_name', 'Creator')
         ss_id      = c.get('sideshift_id', '')
         chat_ident = c.get('chat_identifier', '')
         if not chat_ident:
             continue
 
-        # Separate cadence key so it doesn't conflict with 6 AM status_check
+        wu_key = f'{chat_ident}_wu_day{day_num}'
+        if cadence.get(wu_key, {}).get('last_contacted') == today_str:
+            continue
+
+        msg = await llm_warmup_day_msg(name, ss_id, day_num)
+        if relay_ok:
+            ok = await send_group_imessage(chat_ident, msg)
+            if ok:
+                sent_ok += 1
+                cadence[wu_key] = {'last_contacted': today_str}
+                if ss_id:
+                    append_creator_action(ss_id, name, f'warmup_day{day_num}', msg[:120])
+                logger.info('Warmup day %d sent: %s', day_num, name)
+                await asyncio.sleep(random.uniform(10, 30))
+
+    # ── Legacy nudge for unconfirmed warm-up creators ─────────────────────────
+    for c, cs, days_in, days_remaining in unconfirmed:
+        name       = c.get('creator_name', 'Creator')
+        ss_id      = c.get('sideshift_id', '')
+        chat_ident = c.get('chat_identifier', '')
+        if not chat_ident:
+            continue
+
         wk = f'{chat_ident}_warmup'
         if cadence.get(wk, {}).get('last_contacted') == today_str:
             continue
@@ -1472,11 +1618,8 @@ async def warmup_check(bot: Bot):
                 await asyncio.sleep(random.uniform(10, 30))
 
     save_cadence(cadence)
-    risk_names = [c.get('creator_name', '?') for c, _, _, _ in at_risk]
-    await send(bot, (
-        f'⚠️ <b>At risk ({len(at_risk)}):</b> {", ".join(risk_names)}\n'
-        + (f'→ {sent_ok} nudges enviados' if relay_ok else '→ mac-relay offline')
-    ))
+    if sent_ok:
+        await send(bot, f'✅ <b>Warm-up:</b> {sent_ok} mensajes enviados')
 
 
 # ── Onboarding Check (10am cron) — #18 ───────────────────────────────────────
@@ -1853,6 +1996,156 @@ async def cmd_remap(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info('Remap: %s %s → %s', name, old_chat, new_chat)
 
 
+async def cmd_setwarmup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Set warmup_start_date for a creator, triggering the 3-day warm-up flow.
+    Usage: /setwarmup <creator_name> [YYYY-MM-DD]
+    Defaults to today if no date is provided.
+    Example: /setwarmup "Jersey" or /setwarmup "Jersey" 2026-06-01
+    """
+    if update.effective_chat.id != CHAT_ID:
+        return
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            'Usage: /setwarmup <creator_name> [YYYY-MM-DD]\n'
+            'Defaults to today if no date is given.\n'
+            'Example: /setwarmup "Jersey"'
+        )
+        return
+
+    # Last arg is a date if it matches YYYY-MM-DD
+    start_date = date.today().isoformat()
+    name_parts = args[:]
+    if args[-1].count('-') == 2 and len(args[-1]) == 10:
+        try:
+            date.fromisoformat(args[-1])
+            start_date = args[-1]
+            name_parts = args[:-1]
+        except ValueError:
+            pass
+    name_query = ' '.join(name_parts).strip('"\'')
+
+    creators_map = load_creators_map()
+    raw = json.loads(CREATORS_MAP_FILE.read_text()) if CREATORS_MAP_FILE.exists() else []
+
+    match_idx = None
+    for i, c in enumerate(creators_map):
+        if name_query.lower() in c.get('creator_name', '').lower():
+            match_idx = i
+            break
+
+    if match_idx is None:
+        await update.message.reply_text(f'❌ Creator not found: "{name_query}"')
+        return
+
+    name  = creators_map[match_idx].get('creator_name', 'Creator')
+    ss_id = creators_map[match_idx].get('sideshift_id', '')
+
+    if isinstance(raw, list):
+        raw[match_idx]['warmup_start_date'] = start_date
+    else:
+        # creators_map[match_idx]['creator_name'] is the real dict key (set by load_creators_map)
+        real_key = creators_map[match_idx].get('creator_name', '')
+        if not real_key or real_key not in raw:
+            # fallback: match by sideshift_id
+            real_key = next(
+                (k for k, v in raw.items() if v.get('sideshift_id') == ss_id),
+                None,
+            )
+        if not real_key:
+            await update.message.reply_text(f'❌ Could not resolve dict key for "{name_query}" — aborting.')
+            return
+        raw[real_key]['warmup_start_date'] = start_date
+    CREATORS_MAP_FILE.write_text(json.dumps(raw, indent=2))
+
+    end_date = (date.fromisoformat(start_date) + timedelta(days=WARMUP_DAYS)).isoformat()
+    if ss_id:
+        append_creator_note(ss_id, name, 'warmup_start',
+                            f'Warm-up started {start_date} — ends {end_date} (day {WARMUP_DAYS}).')
+
+    await update.message.reply_html(
+        f'🌱 <b>{name}</b> warm-up set\n'
+        f'Start: <code>{start_date}</code>\n'
+        f'End: <code>{end_date}</code> (day {WARMUP_DAYS})\n'
+        f'Bot will now send daily warm-up messages for {WARMUP_DAYS} days.'
+    )
+    logger.info('Warmup set: %s start=%s end=%s', name, start_date, end_date)
+
+
+async def cmd_offboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Mark a creator as off-campaign (cancelled) and optionally send a farewell iMessage.
+    Usage: /offboard <creator_name> [--no-msg]
+    Example: /offboard "Jersey"         → cancels + sends farewell
+             /offboard "Jersey" --no-msg → cancels only, no iMessage
+    """
+    if update.effective_chat.id != CHAT_ID:
+        return
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            'Usage: /offboard <creator_name> [--no-msg]\n'
+            'Example: /offboard "Jersey"\n'
+            'Marks creator as cancelled and sends a farewell iMessage (unless --no-msg).'
+        )
+        return
+
+    send_msg = '--no-msg' not in args
+    name_parts = [a for a in args if a != '--no-msg']
+    name_query = ' '.join(name_parts).strip('"\'')
+
+    creators_map = load_creators_map()
+    raw = json.loads(CREATORS_MAP_FILE.read_text()) if CREATORS_MAP_FILE.exists() else []
+
+    match_idx = None
+    for i, c in enumerate(creators_map):
+        if name_query.lower() in c.get('creator_name', '').lower():
+            match_idx = i
+            break
+
+    if match_idx is None:
+        await update.message.reply_text(f'❌ Creator not found: "{name_query}"')
+        return
+
+    creator    = creators_map[match_idx]
+    name       = creator.get('creator_name', 'Creator')
+    ss_id      = creator.get('sideshift_id', '')
+    chat_ident = creator.get('chat_identifier', '')
+    old_status = creator.get('contract_status', '—')
+
+    # Update creators_map.json
+    if isinstance(raw, list):
+        raw[match_idx]['contract_status'] = 'cancelled'
+    else:
+        real_key = creator.get('creator_name', '')
+        if not real_key or real_key not in raw:
+            real_key = next((k for k, v in raw.items() if v.get('sideshift_id') == ss_id), None)
+        if not real_key:
+            await update.message.reply_text(f'❌ Could not resolve dict key for "{name_query}" — aborting.')
+            return
+        raw[real_key]['contract_status'] = 'cancelled'
+    CREATORS_MAP_FILE.write_text(json.dumps(raw, indent=2))
+
+    if ss_id:
+        append_creator_note(ss_id, name, 'offboard', f'Marked off-campaign (cancelled) on {date.today().isoformat()}.')
+
+    farewell_status = '—'
+    if send_msg and chat_ident:
+        msg = await llm_offboard_msg(name, ss_id)
+        ok  = await send_group_imessage(chat_ident, msg)
+        farewell_status = '✅ sent' if ok else '⚠️ relay offline — message NOT sent'
+        if ok and ss_id:
+            append_creator_action(ss_id, name, 'offboard_msg', msg[:120])
+    elif send_msg and not chat_ident:
+        farewell_status = '⚠️ no chat_identifier — iMessage skipped'
+
+    await update.message.reply_html(
+        f'🚪 <b>{name}</b> off-boarded\n'
+        f'Status: <code>{old_status}</code> → <code>cancelled</code>\n'
+        f'Farewell iMessage: {farewell_status}'
+    )
+    logger.info('Offboard: %s old_status=%s msg_sent=%s', name, old_status, farewell_status)
+
+
 async def cmd_slackbrief(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != CHAT_ID:
         return
@@ -2191,6 +2484,8 @@ def main():
     _app.add_handler(CommandHandler('classify', cmd_classify))
     _app.add_handler(CommandHandler('remap', cmd_remap))
     _app.add_handler(CommandHandler('profile', cmd_profile))
+    _app.add_handler(CommandHandler('setwarmup', cmd_setwarmup))
+    _app.add_handler(CommandHandler('offboard', cmd_offboard))
     _app.add_handler(CommandHandler('slackbrief', cmd_slackbrief))
     _app.add_handler(CommandHandler('warmup', lambda u, c: asyncio.create_task(warmup_check(c.bot)) or u.message.reply_text('Checking warm-up...') if u.effective_chat.id == CHAT_ID else None))
     _app.add_handler(CommandHandler('digest', lambda u, c: asyncio.create_task(nightly_digest(c.bot)) or u.message.reply_text('Generando digest...') if u.effective_chat.id == CHAT_ID else None))

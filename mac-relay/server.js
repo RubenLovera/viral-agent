@@ -11,14 +11,37 @@ const { execSync } = require('child_process');
 
 const app  = express();
 const PORT = parseInt(process.env.PORT || '3737', 10);
-const RELAY_KEY = process.env.MAC_RELAY_KEY || process.env.RELAY_KEY;
+const RELAY_KEY = process.env.RELAY_KEY;
 
 if (!RELAY_KEY) {
-  console.error('MAC_RELAY_KEY env var required');
+  console.error('RELAY_KEY env var required');
   process.exit(1);
 }
 
 app.use(express.json());
+
+// Dedup: prevent double-sends within 60 seconds (handles VPS timeout+retry)
+const recentSends = new Map(); // key: endpoint+chat+msgHash → timestamp
+const DEDUP_TTL_MS = 60_000;
+
+function msgHash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) { h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; }
+  return h.toString(36);
+}
+
+function isDuplicate(endpoint, id, message) {
+  const key = `${endpoint}:${id}:${msgHash(message)}`;
+  const ts = recentSends.get(key);
+  if (ts && Date.now() - ts < DEDUP_TTL_MS) return true;
+  recentSends.set(key, Date.now());
+  // Prune old entries to avoid memory leak
+  if (recentSends.size > 500) {
+    const cutoff = Date.now() - DEDUP_TTL_MS;
+    for (const [k, v] of recentSends) { if (v < cutoff) recentSends.delete(k); }
+  }
+  return false;
+}
 
 function auth(req, res, next) {
   if (req.headers['x-relay-key'] !== RELAY_KEY) {
@@ -42,6 +65,10 @@ app.post('/imessage', auth, (req, res) => {
   const { to, message } = req.body;
   if (!to || !message) {
     return res.status(400).json({ ok: false, error: 'Missing to or message' });
+  }
+  if (isDuplicate('imessage', to, message)) {
+    console.log('dedup: /imessage suppressed duplicate to', to);
+    return res.json({ ok: true, dedup: true });
   }
 
   const safeMsg = escapeForAppleScript(message);
@@ -100,6 +127,10 @@ app.post('/send-group', auth, (req, res) => {
   if (!chat_identifier || !message) {
     return res.status(400).json({ ok: false, error: 'Missing chat_identifier or message' });
   }
+  if (isDuplicate('send-group', chat_identifier, message)) {
+    console.log('dedup: /send-group suppressed duplicate to', chat_identifier);
+    return res.json({ ok: true, dedup: true });
+  }
 
   const safeMsg  = escapeForAppleScript(message);
   // AppleScript chat id format for group chats is "any;+;{uuid}"
@@ -118,6 +149,30 @@ end tell
     res.json({ ok: true });
   } catch (err) {
     console.error('send-group error:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── POST /read-messages — read incoming messages from a group chat ─────────
+
+const path = require('path');
+const READER_SCRIPT = path.join(__dirname, 'read_messages.py');
+
+app.post('/read-messages', auth, (req, res) => {
+  const { chat_identifier, since_rowid = 0 } = req.body;
+  if (!chat_identifier) {
+    return res.status(400).json({ ok: false, error: 'Missing chat_identifier' });
+  }
+
+  try {
+    const out = execSync(
+      `python3 "${READER_SCRIPT}" "${chat_identifier}" "${parseInt(since_rowid, 10)}"`,
+      { timeout: 10000 }
+    ).toString();
+    const data = JSON.parse(out);
+    res.json({ ok: true, ...data });
+  } catch (err) {
+    console.error('read-messages error:', err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });

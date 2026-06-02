@@ -1,16 +1,26 @@
-[
-  {
-    "creator_name": "Creator Full Name",
+{
+  "Creator Full Name": {
+    "chat_id": null,
     "chat_identifier": "chat+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "display_name": "Creator Full Name",
+    "sideshift_name": "creatorhandle",
     "sideshift_id": "SIDESHIFT_CONTRACTOR_ID",
     "contract_status": "active",
-    "campaigns": ["your-client-campaign-name"]
+    "msg_count": 0,
+    "last_msg": "",
+    "warmup_start_date": "",
+    "posting_since": ""
   },
-  {
-    "creator_name": "Second Creator",
+  "Second Creator": {
+    "chat_id": null,
     "chat_identifier": "chat+YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+    "display_name": "Second Creator",
+    "sideshift_name": "secondhandle",
     "sideshift_id": "SIDESHIFT_CONTRACTOR_ID_2",
     "contract_status": "pending",
-    "campaigns": ["your-client-campaign-name"]
+    "msg_count": 0,
+    "last_msg": "",
+    "warmup_start_date": "",
+    "posting_since": ""
   }
-]
+}

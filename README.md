@@ -2,7 +2,7 @@
 
 Autonomous UGC creator coordination system for The Viral App (TVA) managers.
 
-Sends daily status updates to creators via iMessage, tracks post progress via SideShift, reads TVA Slack for campaign context, and reports everything to your Telegram.
+Sends daily personalized iMessages to creators, tracks post progress via SideShift, manages a structured 3-day warm-up onboarding flow, handles off-boarding, reads TVA Slack for campaign context, and reports everything to your Telegram.
 
 ---
 
@@ -50,14 +50,15 @@ Have these accounts/keys ready — Claude will ask for them one by one:
 ```mermaid
 graph TB
     subgraph MAC["💻 Your Mac  (Full Disk Access required)"]
-        RELAY["mac-relay\nNode.js · port 3737\nlaunchd service"]
+        RELAY["mac-relay\nNode.js · port 3737\nlaunchd service\n+ dedup 60s"]
         POLLER["message_poller.py\npolls iMessage DB\nevery 2 min"]
         DB[("iMessage\nchat.db")]
         NGROK["ngrok tunnel\nstatic domain"]
     end
 
     subgraph VPS["🖥️ VPS  (Ubuntu 24.04 · always-on)"]
-        BOT["viral_bot.py\n10 daily crons\nTelegram handlers"]
+        BOT["viral_bot.py\n10+ daily crons\nTelegram handlers"]
+        SYNC["sync_state.py\n5:50 AM PT cron\nwarm-up state sync"]
     end
 
     TG(["📱 Telegram\n(your phone)"])
@@ -75,25 +76,45 @@ graph TB
 
     BOT -->|"reports · alerts · briefs"| TG
     TG -->|"manager taps button"| BOT
-    BOT -->|"posts · analytics · payouts"| SS
+    BOT & SYNC -->|"posts · analytics · payouts"| SS
     BOT -->|"read channels (24h)"| SLACK
     BOT -->|"generate iMessages"| AI
 ```
 
+### 3-Day warm-up pipeline
+
+New creators go through a structured 3-day warm-up before posting. The bot guides them day by day with specific tips.
+
+```
+Day 0  → onboarding_check (10 AM):
+         "Welcome! We'll start with a 3-day warm-up. Stay tuned."
+
+Day 1  → /setwarmup <creator>  (manager triggers manually)
+         warmup_check (2 PM): "Scroll your FYP 20-30 min, engage with beauty content"
+
+Day 2  → warmup_check (2 PM): "Post 1-2 of your own videos (not the campaign) for credibility"
+
+Day 3  → warmup_check (2 PM): "More engagement + do you have a draft ready?"
+
+Day 4+ → sync_state.py detects posts > 0 → clears warm-up → status_check resumes normally
+```
+
 ### Creator pipeline
 
-Creators move through 5 states. The bot adjusts its cadence automatically.
+Creators move through 6 states. The bot adjusts its cadence automatically.
 
 ```mermaid
 stateDiagram-v2
     direction LR
     [*] --> onboarding : creator added
-    onboarding --> warm_up : first post
-    warm_up --> active : >5 posts or >7 days
+    onboarding --> warm_up : first post or /setwarmup
+    warm_up --> active : posts > 0 detected by sync_state.py
     active --> silent : 48h no post
     silent --> active : new post
     silent --> at_risk : 3 ignored follow-ups
     at_risk --> [*] : contact paused · manager alerted
+    active --> cancelled : /offboard command
+    warm_up --> cancelled : /offboard command
 ```
 
 ### Incoming message flow
@@ -111,7 +132,7 @@ graph LR
     D4["✅ Update\nnotification"]
     E(["📱 Telegram\ninline buttons"])
     F(["👤 Manager\ntaps button"])
-    G["viral_bot.py\n→ mac-relay → ngrok"]
+    G["viral_bot.py\n→ mac-relay → ngrok\n(dedup: 60s window)"]
     H(["💬 Reply\ndelivered via iMessage"])
 
     A --> B --> C
@@ -121,38 +142,27 @@ graph LR
 
 ### Creator memory
 
-Each creator has a profile that builds up over time from multiple sources. When the bot generates a message, it reads all four layers and combines them with shared campaign context before calling Gemini.
+Each creator has a profile that builds up over time. When the bot generates a message, it reads all layers and combines them with shared campaign context.
 
 ```mermaid
 flowchart LR
-    subgraph WRITERS[" "]
-        SS["📊 SideShift API\nposts · views · payouts"]
-        MP["message_poller.py\niMessages from creator"]
-        VB["viral_bot.py\ncrons + state transitions"]
+    subgraph PROFILE["📁 creators/{id}.json"]
+        ST["① state\nposts · views · progress %\nchannel · warmup_start_date\nposting_since"]
+        EV["② events\nfirst_post · warmup_complete\nwarmup_start · offboard"]
+        IX["③ interactions\nincoming messages classified"]
+        AC["④ actions\noutgoing messages sent\nstatus · warmup_day · offboard"]
     end
 
-    subgraph PROFILE["📁 creators/{id}.json  —  one file per creator"]
-        ST["① state\nposts · views · progress %\nchannel · days since post\n─────────────────\nupdated: 6 AM daily"]
-        EV["② events\nfirst_post · warmup_complete\nstate_change · at_risk\n─────────────────\nupdated: on each milestone"]
-        IX["③ interactions\nincoming messages classified\nDRAFT · QUESTION · COMPLAINT\n─────────────────\nupdated: every 2 min (Mac → VPS)"]
-        AC["④ actions\noutgoing messages sent by bot\nstatus_check · onboarding · nudges\n─────────────────\nupdated: on every iMessage sent"]
+    subgraph SHARED["Shared context"]
+        BR["campaign_brief.md"]
+        TC["tva_context.md\n(daily Slack brief)"]
+        VP["voice_profile.json"]
     end
-
-    subgraph SHARED["Shared context  (injected at send time)"]
-        BR["campaign_brief.md\nclient brand context"]
-        TC["tva_context.md\ndaily Slack brief"]
-        VP["voice_profile.json\nmanager tone + phrases"]
-    end
-
-    SS -->|"6 AM\nstatus_check"| ST
-    VB -->|"milestone reached\nor state transition"| EV
-    MP -->|"classify → rsync\nmerge at 6 AM"| IX
-    VB -->|"logged after\nevery send"| AC
 
     ST & EV & IX & AC --> GM
     BR & TC & VP --> GM
-    GM["🤖 Gemini\ngenerates personalized\niMessage for this creator"]
-    GM --> OUT["💬 iMessage\ndelivered via mac-relay"]
+    GM["🤖 Gemini\ngenerates personalized\niMessage"]
+    GM --> OUT["💬 iMessage"]
 ```
 
 ---
@@ -161,16 +171,19 @@ flowchart LR
 
 | Time (PT) | What it does |
 |-----------|-------------|
-| 6:00 AM   | Status Check — personalized iMessage to each creator with their stats |
+| 5:50 AM   | **sync_state.py** — clears warm-up when creator has posts, sets `posting_since` |
+| 6:00 AM   | Status Check — personalized iMessage to each active creator with their stats |
 | 7:30 AM   | Slack Brief — reads TVA channels, sends summary to Telegram |
 | 9:00 AM   | Morning Report — full campaign stats in Telegram |
-| 10:00 AM  | Onboarding Check — nudges creators with 0 posts |
-| 11:00 AM  | Buenos Días Check — mid-morning engagement |
-| 2:00 PM   | Warm-up Check — monitors warm-up creators, nudges at-risk ones |
-| 5:00 PM   | Overdue Check — flags creators who haven't posted today |
+| 10:00 AM  | Onboarding Check — Day 0 warm-up invitation to new creators |
+| 11:00 AM  | Buenos Días Check — mid-morning engagement check |
+| 2:00 PM   | **Warm-up Check** — day-specific tips (Day 1/2/3) to confirmed warm-up creators |
+| 5:00 PM   | Overdue Check — flags creators who haven't posted in 24h |
 | 9:00 PM   | Nightly Digest — end of day summary |
 | 1st of month | Voice profile regeneration reminder |
 | Every 15 min | mac-relay health check |
+
+---
 
 ## Telegram commands
 
@@ -182,11 +195,64 @@ flowchart LR
 | `/channelstate` | Show channel states for all creators |
 | `/profile <name>` | Show creator's full profile |
 | `/slackbrief` | Read Slack channels now |
+| `/warmup` | Run warm-up check now |
+| `/setwarmup <name> [YYYY-MM-DD]` | Start 3-day warm-up for a creator (defaults to today) |
+| `/offboard <name> [--no-msg]` | Move creator to off-campaign + send farewell iMessage |
 | `/classify <text>` | Classify an iMessage (draft/question/complaint/update/other) |
 | `/remap <name> <chat_id>` | Reassign creator's chat identifier |
+
+---
+
+## Quality guards
+
+- **FORBIDDEN_STRINGS** — aborts any message containing internal labels (OFF CAMPAIGN, DO NOT CONTACT, etc.)
+- **English-only** — all LLM-generated messages are forced to English regardless of input language
+- **Fresh post counts** — always reads live API data, never cached contract fields
+- **Dedup relay** — mac-relay suppresses duplicate sends within 60 seconds (prevents VPS timeout+retry double-sends)
+- **Outreach guard** — `send-imessages.py` skips creators already active in SideShift
+
+---
+
+## creators_map.json format
+
+The bot uses a **dict format** keyed by creator name:
+
+```json
+{
+  "Jersey Wilson": {
+    "chat_identifier": "chat+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "sideshift_id": "CONTRACTOR_ID",
+    "contract_status": "active",
+    "warmup_start_date": "",
+    "posting_since": "2026-06-01"
+  }
+}
+```
+
+Key fields:
+- `contract_status`: `active` | `pending` | `outreach` | `cancelled`
+- `warmup_start_date`: set by `/setwarmup`, cleared by `sync_state.py` when posts > 0
+- `posting_since`: set by `sync_state.py` when creator first posts
+
+---
 
 ## Multiple managers
 
 Each TVA manager runs their own isolated instance — their own Telegram bot, SideShift key, ngrok domain, and creator roster. Multiple instances can run on the same VPS without interference.
 
 To install for a new manager, they clone the repo and run `claude` from the directory.
+
+---
+
+## Updating
+
+On your Mac:
+```bash
+git -C ~/VIRAL pull
+```
+
+On the VPS (ssh in or via the bot):
+```bash
+git -C /root/viral-agent pull
+systemctl restart viral-bot-<your-slug>
+```
