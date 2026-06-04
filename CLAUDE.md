@@ -42,6 +42,7 @@ TVA ayuda a apps a escalar de cero a millones de MRR. Tres pilares: Creator Netw
 | `/weekly-performance-report` | Reporte semanal: métricas SideShift + pipeline completo de creadores + plan para la semana siguiente |
 | `/monthly-performance-report` | Reporte mensual en inglés para el founder/cliente: narrativa ejecutiva del mes + proyección |
 | `/tiktok-research` | Motor de investigación TikTok: videos virales, creadores, sonidos, comentarios, tendencias, hashtags — acepta lenguaje natural |
+| `/tva-daily-standup` | Daily Stand Up para el equipo TVA: iMessage + SideShift + input manual → COMPLETADO/EN PROGRESO/BLOQUEADO/PARA MAÑANA |
 
 ### B. Creator DB CLI — 16 Comandos (`python3 tools/creators.py <cmd>`)
 
@@ -140,6 +141,7 @@ TVA ayuda a apps a escalar de cero a millones de MRR. Tres pilares: Creator Netw
 | "daily report de [cliente]", "cómo va hoy", "qué necesito hacer hoy" | Invocar `/daily-performance-report` |
 | "weekly report de [cliente]", "reporte semanal", "cómo fue la semana" | Invocar `/weekly-performance-report` |
 | "monthly report de [cliente]", "reporte mensual", "reporte para el cliente", "reporte para Joe" | Invocar `/monthly-performance-report` |
+| "daily stand up", "daily standup", "arma el daily", "reporte para el equipo", "standup de hoy", "daily de TVA", "qué reporte mando al equipo" | Invocar `/tva-daily-standup` |
 
 ---
 
@@ -305,6 +307,7 @@ Estas reglas aplican en TODO momento, sin que Rubén las pida:
 VIRAL/
 ├── vault/                    # Second brain TVA (git submodule — read only)
 ├── clients/skinqueen/        # Contexto completo de SkinQueens
+├── standups/                 # Daily stand ups TVA (tva-standup-YYYY-MM-DD.md) — synced al VPS
 ├── creators/
 │   ├── creators.json         # SOURCE OF TRUTH — 187 creadores
 │   ├── creator-directory.md  # Vista markdown (auto-generada)
@@ -322,7 +325,9 @@ VIRAL/
 
 ## SideShift MCP — Configuración
 
-**Program ID SkinQueens:** `TB3foYXKIztJmVZmPkyJ` ← SIEMPRE este ID  
+**Program ID SkinQueens (MCP tools):** `TB3foYXKIztJmVZmPkyJ`  
+**Program ID SkinQueens (VPS bot `.env.viral`):** `nxfYUJtTDlwqtc5aMwCv` ← el bot usa este, tiene 534+ posts  
+**⚠️ Discrepancia activa:** Los dos IDs pueden ser campañas distintas. Verificar con Joe o en SideShift dashboard. Mientras tanto usar el ID del contexto (MCP → TB3foY, VPS bot → nxfYUJ).  
 **API key:** `$SIDESHIFT_API_KEY` en `~/.zshrc`  
 **Server:** `~/VIRAL/tools/sideshift-mcp/index.js`  
 **Config:** `.mcp.json` en la raíz del proyecto  
@@ -391,19 +396,40 @@ El bot de Telegram que reporta métricas de SkinQueens diariamente. Vive en Culv
 **Código fuente (Mac):** `~/culver-os/agents/viral_bot.py`  
 **Deployado en VPS:** `/root/culver-os/agents/viral_bot.py`  
 **Config VPS:** `/root/culver-os/.env.viral`  
-**Service:** `viral-bot.service` — enabled, corriendo desde 2026-05-20  
+**Service:** `viral-bot.service` — enabled, activo en VPS 187.127.255.6  
+**Gemini:** `gemini-2.5-flash` vía `google.genai` SDK (billing activo desde 2026-06-04)  
 **Token Telegram:** `8929948963:AAEYLOCxs3EoD248cyyOImrprdnyPsfVY40`  
 **CHAT_ID:** `-1003951624858` | **VIRAL_THREAD_ID:** `546`  
 
-**Crons configurados (timezone: America/Los_Angeles):**
-- 9:00 AM → `morning_report` — métricas completas SkinQueens
+**Crons configurados (timezone: America/Los_Angeles — APScheduler dentro del bot):**
+- 5:50 AM → `sync_state` — sincroniza posting_since + auto-upgrade contract_status pending→active si posts>0
+- 6:00 AM → `status_check` — iMessage personalizado a TODAS las creadoras active/pending/outreach vía mac-relay (21+ msgs/día)
+- 7:30 AM → `slack_daily_brief` — lee canales Slack TVA → Telegram
+- 9:00 AM → `morning_report` — métricas completas SkinQueens → Telegram
+- 10:00 AM → `onboarding_check` — mensajes warm-up day 0 a creadoras nuevas
 - 11:00 AM → `buenos_dias_check` — alerta creadores sin postear en 24h
-- 5:00 PM → `overdue_check` — revisión de contratos overdue
+- 2:00 PM → `warmup_check` — tips día 1/2/3 del warm-up (si warmup_start_date seteado)
+- 5:00 PM → `overdue_check` — alertas contratos overdue → Telegram
+- 9:00 PM → `nightly_digest` — resumen del día: posts, views, pipeline → Telegram
+- Día 1/mes, 9 AM → `_voice_profile_reminder` — recordatorio mensual de regenerar voice profile
 
-**Comandos Telegram:**
-- `/report` — reporte manual inmediato
-- `/status` — estado del bot
+**Comandos Telegram disponibles (v1.5):**
+- `/report` — morning report manual
+- `/statuscheck` — status check manual a todas
+- `/onboarding` — onboarding check manual
 - `/check` — buenos días check manual
+- `/warmup` — warmup check manual
+- `/digest` — nightly digest manual
+- `/channelstate` — pipeline de creadoras
+- `/profile <name>` — perfil completo de una creadora
+- `/setwarmup <name> [YYYY-MM-DD]` — inicia warm-up 3-day
+- `/offboard <name> [--no-msg]` — off-boardea creadora → cancelled + farewell iMessage
+- `/status` — estado del bot (mac-relay, DB, última ejecución)
+
+**⚠️ REGLA CRÍTICA — Off-boarding:**
+Cuando una creadora sale de campaña, SIEMPRE ejecutar `/offboard <nombre>` desde Telegram.
+El mensaje iMessage "CREATOR OFF CAMPAIGN" NO actualiza el bot — solo cambia la UI.
+Sin `/offboard`, el bot sigue enviando mensajes indefinidamente.
 
 **Deployar cambios:**
 ```bash
@@ -415,7 +441,11 @@ sshpass -e ssh -o StrictHostKeyChecking=no root@187.127.255.6 \
   "systemctl restart viral-bot && systemctl status viral-bot --no-pager | head -5"
 ```
 
-**mac-relay:** NO activo. `MAC_RELAY_URL` vacío — funciones de iMessage hacen skip silencioso.
+**mac-relay:** ✅ ACTIVO como LaunchAgent en Mac.
+- URL: `https://cattle-unmixed-amuser.ngrok-free.dev` (ngrok free, dominio fijo)
+- Plist: `~/VIRAL/mac-relay/com.culveros.mac-relay.plist` + `com.culveros.ngrok.plist`
+- El `status_check` (6 AM) manda iMessages a todas las creadoras activas vía este relay
+- **`message_poller.py`** — herramienta MANUAL (NO LaunchAgent). Lee respuestas de creadoras desde `~/Library/Messages/chat.db` y las reenvía a Telegram clasificadas. ⚠️ Correr solo cuando `data/poller_state.json` esté actualizado — si no, manda TODOS los mensajes acumulados desde el último run. Actualizar state antes de correr: `python3 scripts/update_poller_state.py`
 
 ---
 

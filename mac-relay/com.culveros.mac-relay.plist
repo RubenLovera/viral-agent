@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.culveros.mac-relay</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/rubenlovera/VIRAL/mac-relay/server.js</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PORT</key>
+    <string>3737</string>
+    <key>RELAY_KEY</key>
+    <string>f5230ff52a2a1612eaa490b03c09ccbc261224d6f0447f24f14a564cb13cea19</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/rubenlovera/VIRAL/mac-relay/mac-relay.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/rubenlovera/VIRAL/mac-relay/mac-relay.log</string>
+</dict>
+</plist>

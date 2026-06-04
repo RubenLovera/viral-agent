@@ -1,0 +1,19 @@
+# Node
+mac-relay/node_modules/
+mac-relay/ngrok.log
+mac-relay/mac-relay.log
+
+# Python
+**/__pycache__/
+*.pyc
+.env
+
+# macOS
+.DS_Store
+
+# Vault submodule handled separately
+vault/
+
+# Logs
+*.log
+tools/sync-vault.log

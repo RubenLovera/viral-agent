@@ -1,0 +1,12 @@
+{
+  "name": "mac-relay",
+  "version": "1.0.0",
+  "description": "Mac relay server: VPS → iMessage via osascript",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}

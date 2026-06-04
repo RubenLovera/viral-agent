@@ -1,0 +1,69 @@
+{
+  "greetings": [
+    "Hi!",
+    "Hi",
+    "Hello",
+    "Here",
+    "Great",
+    "Awesome"
+  ],
+  "closings": [
+    "Let me know if you have questions",
+    "Please let me know if you have any other question!",
+    "if you have more drafts you can send them over the weekend 😃"
+  ],
+  "emoji_patterns": {
+    "frequent": [
+      "😃",
+      "✅"
+    ],
+    "contextual": {
+      "excitement": [
+        "😃",
+        "✅"
+      ],
+      "affirmation": [
+        "✅"
+      ],
+      "casual": [
+        "😃"
+      ]
+    }
+  },
+  "language_mix": {
+    "english_ratio": 1.0,
+    "spanish_ratio": 0.0,
+    "code_switching_patterns": "No Spanish detected."
+  },
+  "formality_level": "semi-formal",
+  "filler_words": [
+    "so",
+    "well",
+    "just",
+    "like"
+  ],
+  "tone_descriptors": [
+    "Informative",
+    "Direct",
+    "Helpful",
+    "Professional",
+    "Encouraging",
+    "Concise",
+    "Action-oriented"
+  ],
+  "sample_phrases": [
+    "How is your warm up going?",
+    "Did you review the documentation I’ve sent you?",
+    "Draft approved! ✅ Please post it now",
+    "If you have more drafts you can send them over the weekend 😃",
+    "Here Ruben from SkinQueens!",
+    "Hi [Name]! How are you?",
+    "Please join the campaign here",
+    "I'll send you more information",
+    "Can you post it now?",
+    "We’d like to work with you"
+  ],
+  "sentence_length": "short",
+  "punctuation_style": "Generally uses correct punctuation, but sometimes omits commas. Frequently uses exclamation points with approvals. Includes inconsistent spacing around punctuation marks.",
+  "notes": "Often asks about the creator's warm-up progress. Frequently sends the same block of text with links and instructions. Uses 'please' frequently when making requests. Frequently approves drafts with 'Draft approved! ✅'"
+}

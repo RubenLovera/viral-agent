@@ -2,7 +2,8 @@
 
 **Cliente activo de TVA** | Contacto principal: Joe Fleming (CEO) + Gary  
 **Tipo de contrato:** Pilot month (1 mes) → validar → Phase 2  
-**Firmado:** Pendiente de firma de contrato para arrancar
+**Firmado:** Pendiente de firma de contrato para arrancar  
+**TikTok oficial:** [@skinqueencare](https://www.tiktok.com/@skinqueencare) — 16 followers, 121 likes (cuenta casi sin actividad — toda la distribución va por UGC de creadoras)
 
 ---
 
