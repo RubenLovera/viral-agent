@@ -325,9 +325,7 @@ VIRAL/
 
 ## SideShift MCP — Configuración
 
-**Program ID SkinQueens (MCP tools):** `TB3foYXKIztJmVZmPkyJ`  
-**Program ID SkinQueens (VPS bot `.env.viral`):** `nxfYUJtTDlwqtc5aMwCv` ← el bot usa este, tiene 534+ posts  
-**⚠️ Discrepancia activa:** Los dos IDs pueden ser campañas distintas. Verificar con Joe o en SideShift dashboard. Mientras tanto usar el ID del contexto (MCP → TB3foY, VPS bot → nxfYUJ).  
+**Program ID SkinQueens:** `TB3foYXKIztJmVZmPkyJ` ← SIEMPRE este ID (MCP tools + VPS bot)  
 **API key:** `$SIDESHIFT_API_KEY` en `~/.zshrc`  
 **Server:** `~/VIRAL/tools/sideshift-mcp/index.js`  
 **Config:** `.mcp.json` en la raíz del proyecto  
