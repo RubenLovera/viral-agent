@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.viral.mac-relay</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/node</string>
+        <string>/Users/YOUR_USERNAME/VIRAL/mac-relay/server.js</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USERNAME/VIRAL/mac-relay</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>MAC_RELAY_KEY</key>
+        <string>YOUR_MAC_RELAY_SECRET_KEY</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USERNAME/VIRAL/mac-relay/mac-relay.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USERNAME/VIRAL/mac-relay/mac-relay.log</string>
+</dict>
+</plist>

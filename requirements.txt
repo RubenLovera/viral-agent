@@ -1,0 +1,6 @@
+python-telegram-bot>=20.0
+httpx>=0.25.0
+apscheduler>=3.10
+python-dotenv>=1.0
+google-genai>=1.0
+slack_sdk>=3.27

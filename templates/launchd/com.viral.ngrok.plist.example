@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.viral.ngrok</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/ngrok</string>
+        <string>http</string>
+        <string>--domain=YOUR-STATIC-DOMAIN.ngrok-free.app</string>
+        <string>3737</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USERNAME/VIRAL/mac-relay/ngrok.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USERNAME/VIRAL/mac-relay/ngrok.log</string>
+</dict>
+</plist>
